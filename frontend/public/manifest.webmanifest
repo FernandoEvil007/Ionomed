@@ -1,0 +1,17 @@
+{
+  "name": "IonoMed",
+  "short_name": "IonoMed",
+  "description": "Soporte clínico para trastornos hidroelectrolíticos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ecfeff",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
