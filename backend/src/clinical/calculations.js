@@ -35,6 +35,30 @@ export function hypertonicSalineRateMlHour({ targetRisePerHour, sodium, totalBod
   return round((Number(targetRisePerHour) / deltaPerLiter) * 1000, 0);
 }
 
+function electrolyteDeficits({ patient, lab, sodiumCorrected, totalBodyWater }) {
+  const weightKg = Number(patient.weightKg);
+  if (!weightKg || weightKg <= 0) {
+    return {
+      sodiumDeficitMeq: null,
+      potassiumDeficitMeq: null
+    };
+  }
+
+  const sodium = sodiumCorrected ?? lab.sodium;
+  const potassium = lab.potassium;
+  const sodiumDeficitMeq = sodium !== undefined && sodium !== null && Number(sodium) < 135 && totalBodyWater
+    ? round((135 - Number(sodium)) * Number(totalBodyWater), 0)
+    : null;
+  const potassiumDeficitMeq = potassium !== undefined && potassium !== null && Number(potassium) < 3.5
+    ? round((3.5 - Number(potassium)) * weightKg * 0.4, 0)
+    : null;
+
+  return {
+    sodiumDeficitMeq,
+    potassiumDeficitMeq
+  };
+}
+
 export function calculateAll({ patient, lab, settings = {} }) {
   const egfr = calculateCkdEpi2021({ age: patient.age, sex: patient.sex, creatinine: lab.creatinine });
   const cockcroftGault = calculateCockcroftGault({ age: patient.age, sex: patient.sex, weightKg: patient.weightKg, creatinine: lab.creatinine });
@@ -44,6 +68,7 @@ export function calculateAll({ patient, lab, settings = {} }) {
   const osmolality = calculatedSerumOsmolality({ sodium: lab.sodium, glucose: lab.glucose, bun: lab.bun });
   const sodium3ChangePerLiter = hypertonicSalineSodiumChangePerLiter({ sodium: sodiumCorrected || lab.sodium, totalBodyWater });
   const sodium3RateFor05 = hypertonicSalineRateMlHour({ targetRisePerHour: 0.5, sodium: sodiumCorrected || lab.sodium, totalBodyWater });
+  const deficits = electrolyteDeficits({ patient, lab, sodiumCorrected, totalBodyWater });
 
   return {
     egfr,
@@ -54,6 +79,7 @@ export function calculateAll({ patient, lab, settings = {} }) {
     calciumCorrected,
     calculatedSerumOsmolality: osmolality,
     sodium3ChangePerLiter,
-    sodium3RateFor05
+    sodium3RateFor05,
+    ...deficits
   };
 }

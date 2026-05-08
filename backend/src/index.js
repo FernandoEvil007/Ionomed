@@ -3,11 +3,13 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import { connectDB } from "./db.js";
+import { DB_PATH, initStore } from "./store.js";
 import authRoutes from "./routes/auth.js";
 import patientRoutes from "./routes/patients.js";
 import clinicalRoutes from "./routes/clinical.js";
 import orderRoutes from "./routes/orders.js";
+import adminRoutes from "./routes/admin.js";
+import dashboardRoutes from "./routes/dashboard.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -18,13 +20,15 @@ app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, app: "IonoMed", version: "0.1.0" });
+  res.json({ ok: true, app: "IonoMed", version: "0.1.0", database: "sqlite" });
 });
 
 app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/clinical", clinicalRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
@@ -33,11 +37,11 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-connectDB()
+initStore()
   .then(() => {
-    app.listen(port, () => console.log(`🚀 IonoMed backend en puerto ${port}`));
+    app.listen(port, () => console.log(`IonoMed backend en puerto ${port}. DB local: ${DB_PATH}`));
   })
   .catch((error) => {
-    console.error("❌ Error conectando a base de datos", error);
+    console.error("Error iniciando base de datos local", error);
     process.exit(1);
   });

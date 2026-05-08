@@ -1,10 +1,21 @@
 import express from "express";
 import { z } from "zod";
-import Patient from "../models/Patient.js";
-import Lab from "../models/Lab.js";
 import { authRequired } from "../middleware/auth.js";
 import { evaluateClinicalCase } from "../clinical/engine.js";
-import Institution from "../models/Institution.js";
+import { buildFollowUp } from "../clinical/followup.js";
+import {
+  closePatient,
+  createLab,
+  createOrders,
+  createPatient,
+  findInstitutionById,
+  findPatientById,
+  latestLabBefore,
+  listLabs,
+  listPatients,
+  makeAuditEvent,
+  updatePatient
+} from "../store.js";
 
 const router = express.Router();
 router.use(authRequired);
@@ -20,7 +31,7 @@ const patientSchema = z.object({
   location: z.string().optional(),
   volumeStatus: z.enum(["hipovolemico", "euvolemico", "hipervolemico", "incierto"]).default("incierto"),
   oralRouteAvailable: z.boolean().default(true),
-  venousAccess: z.enum(["periferico", "central", "ninguno", "desconocido"]).default("desconocido"),
+  venousAccess: z.enum(["periferico", "linea_media", "central", "ninguno", "desconocido"]).default("desconocido"),
   urineOutputMlKgH: z.coerce.number().optional().nullable(),
   comorbidities: z.array(z.string()).default([]),
   medications: z.array(z.string()).default([]),
@@ -52,17 +63,16 @@ const labSchema = z.object({
 });
 
 router.get("/", async (req, res) => {
-  const patients = await Patient.find({ institutionId: req.user.institutionId, isActive: true }).sort({ updatedAt: -1 }).lean();
-  res.json(patients);
+  res.json(await listPatients(req.user.institutionId));
 });
 
 router.post("/", async (req, res, next) => {
   try {
     const data = patientSchema.parse(req.body);
-    const patient = await Patient.create({
+    const patient = await createPatient({
       ...data,
       institutionId: req.user.institutionId,
-      createdBy: req.user._id
+      createdBy: req.user.id
     });
     res.status(201).json(patient);
   } catch (error) {
@@ -71,20 +81,16 @@ router.post("/", async (req, res, next) => {
 });
 
 router.get("/:id", async (req, res) => {
-  const patient = await Patient.findOne({ _id: req.params.id, institutionId: req.user.institutionId }).lean();
+  const patient = await findPatientById(req.params.id, req.user.institutionId);
   if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
-  const labs = await Lab.find({ patientId: patient._id, institutionId: req.user.institutionId }).sort({ collectedAt: -1 }).lean();
+  const labs = await listLabs(patient.id, req.user.institutionId);
   res.json({ patient, labs });
 });
 
 router.put("/:id", async (req, res, next) => {
   try {
     const data = patientSchema.partial().parse(req.body);
-    const patient = await Patient.findOneAndUpdate(
-      { _id: req.params.id, institutionId: req.user.institutionId },
-      data,
-      { new: true }
-    );
+    const patient = await updatePatient(req.params.id, req.user.institutionId, data);
     if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
     res.json(patient);
   } catch (error) {
@@ -94,31 +100,54 @@ router.put("/:id", async (req, res, next) => {
 
 router.post("/:id/labs", async (req, res, next) => {
   try {
-    const patient = await Patient.findOne({ _id: req.params.id, institutionId: req.user.institutionId });
+    const patient = await findPatientById(req.params.id, req.user.institutionId);
     if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
+
     const data = labSchema.parse(req.body);
-    const lab = await Lab.create({
+    const lab = await createLab({
       ...data,
       institutionId: req.user.institutionId,
-      patientId: patient._id,
-      createdBy: req.user._id
+      patientId: patient.id,
+      createdBy: req.user.id
     });
-    const institution = await Institution.findById(req.user.institutionId).lean();
-    const evaluation = evaluateClinicalCase({ patient: patient.toObject(), lab: lab.toObject(), settings: institution?.settings || {} });
-    res.status(201).json({ lab, evaluation });
+    const previousLab = await latestLabBefore(patient.id, req.user.institutionId, lab.id);
+    const institution = await findInstitutionById(req.user.institutionId);
+    const evaluation = evaluateClinicalCase({ patient, lab, settings: institution?.settings || {} });
+    const followUp = buildFollowUp({
+      currentLab: lab,
+      previousLab,
+      patient,
+      settings: institution?.settings || {}
+    });
+
+    evaluation.followUp = followUp;
+    evaluation.globalAlerts = [...(followUp.alerts || []), ...(evaluation.globalAlerts || [])];
+
+    const orders = await createOrders(evaluation.orders, {
+      institutionId: req.user.institutionId,
+      patientId: patient.id,
+      labId: lab.id,
+      createdBy: req.user.id,
+      auditEvents: [makeAuditEvent(req.user, "generated", "Orden sugerida generada al ingresar laboratorio.")]
+    });
+    evaluation.orders = orders;
+
+    res.status(201).json({ lab, evaluation, orders });
   } catch (error) {
     next(error);
   }
 });
 
 router.post("/:id/close", async (req, res) => {
-  const patient = await Patient.findOneAndUpdate(
-    { _id: req.params.id, institutionId: req.user.institutionId },
-    { isActive: false },
-    { new: true }
-  );
+  const patient = await closePatient(req.params.id, req.user.institutionId);
   if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
   res.json(patient);
+});
+
+router.delete("/:id", async (req, res) => {
+  const patient = await closePatient(req.params.id, req.user.institutionId);
+  if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
+  res.json({ ok: true, patient });
 });
 
 export default router;

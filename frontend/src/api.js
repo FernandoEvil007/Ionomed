@@ -1,7 +1,23 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 export function getToken() {
   return localStorage.getItem("ionomed_token");
+}
+
+export async function apiDownload(path) {
+  const token = getToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || "Error de descarga");
+  }
+
+  return response.blob();
 }
 
 export function setSession({ token, user, institution }) {

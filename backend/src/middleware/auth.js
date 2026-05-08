@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import { findUserById } from "../store.js";
 
 export async function authRequired(req, res, next) {
   try {
@@ -8,7 +8,7 @@ export async function authRequired(req, res, next) {
     if (!token) return res.status(401).json({ message: "No autorizado" });
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.sub).lean();
+    const user = await findUserById(payload.sub);
     if (!user || !user.isActive) return res.status(401).json({ message: "Usuario no autorizado" });
 
     req.user = user;
