@@ -53,6 +53,24 @@ router.put("/:id/edit", async (req, res) => {
   res.json(order);
 });
 
+router.post("/:id/recalculate", async (req, res) => {
+  const metadata = req.body.metadata || {};
+  const note = [
+    "Orden recalculada desde selector de solucion.",
+    metadata.solution ? `Solucion: ${metadata.solution}.` : "",
+    metadata.dailyChange ? `Cambio objetivo: ${metadata.dailyChange} mEq/L/24h.` : "",
+    metadata.rate ? `Velocidad: ${metadata.rate} mL/h.` : ""
+  ].filter(Boolean).join(" ");
+  const order = await updateOrder(
+    req.params.id,
+    req.user.institutionId,
+    { editedText: req.body.editedText, status: "edited" },
+    makeAuditEvent(req.user, "recalculated", note)
+  );
+  if (!order) return res.status(404).json({ message: "Orden no encontrada" });
+  res.json(order);
+});
+
 router.post("/:id/copy", async (req, res) => {
   const order = await updateOrder(
     req.params.id,

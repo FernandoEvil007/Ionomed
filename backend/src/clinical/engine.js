@@ -24,8 +24,29 @@ function numberedOrderText(text) {
     .join("\n");
 }
 
+const CLINICAL_PROTOCOL_VERSION = "ionomed-electrolytes-2026.05";
+
 function makeOrder({ disorder, severity, priority, text, alerts = [], justification = "", safety = null, missingData = [], controls = [] }) {
-  return { disorder, severity, priority, suggestedText: numberedOrderText(text), alerts, justification, safety, missingData, controls };
+  const normalizedMissing = [...new Set(missingData.filter(Boolean))];
+  const normalizedControls = [...new Set(controls.filter(Boolean))];
+  const dataCompleteness = normalizedMissing.length ? "incompleta" : "suficiente";
+  const safetyPayload = safety
+    ? { protocolVersion: CLINICAL_PROTOCOL_VERSION, dataCompleteness, ...safety }
+    : { protocolVersion: CLINICAL_PROTOCOL_VERSION, dataCompleteness };
+  const dataAlert = normalizedMissing.length
+    ? [`Datos faltantes: ${normalizedMissing.join(", ")}. La orden se genera con informacion parcial y debe ajustarse al completar datos.`]
+    : [];
+  return {
+    disorder,
+    severity,
+    priority,
+    suggestedText: numberedOrderText(text),
+    alerts: [...dataAlert, ...alerts],
+    justification,
+    safety: safetyPayload,
+    missingData: normalizedMissing,
+    controls: normalizedControls
+  };
 }
 
 function sodiumHighRisk(patient) {
@@ -170,8 +191,8 @@ function severeHyponatremiaContinuousPlan(patient, calculations, dailyLimit) {
     : "No calculable sin sodio y agua corporal total.";
   const hypertonicOptions = "solucion salina hipertonica al 7.5% o al 3% segun disponibilidad/protocolo; solucion salina 0.9% si hipovolemia";
   const hypertonicText = hypertonicRate
-    ? `Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1). ${formulaSummary} Dejar solucion salina hipertonica al 3% en infusion continua a maximo ${hypertonicRate} mL/h por bomba. Si se usa solucion al 7.5%, recalcular con Na de infusion 1283 mEq/L. Esta velocidad esta limitada para no superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas; revalorar con sodio en 2 horas y suspender/ajustar al alcanzar aumento de 4 a 6 mmol/L o mejoria neurologica.`
-    : `Dejar solucion salina hipertonica al 3% o al 7.5% en infusion continua por bomba segun calculo/protocolo institucional, con sodio en 2 horas y ajuste inmediato segun respuesta. No superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas.`;
+    ? `Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1). ${formulaSummary} Dejar solucion salina hipertonica al 3% en infusion continua a maximo ${hypertonicRate} mL/h por bomba. Esta velocidad esta limitada para no superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas; revalorar con sodio en 2 horas y suspender/ajustar al alcanzar aumento de 4 a 6 mmol/L o mejoria neurologica.`
+    : `Dejar solucion salina hipertonica al 3% en infusion continua por bomba segun calculo/protocolo institucional, con sodio en 2 horas y ajuste inmediato segun respuesta. No superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas.`;
 
   if (volume === "hipovolemico") {
     return {
@@ -206,7 +227,7 @@ function severeHyponatremiaContinuousPlan(patient, calculations, dailyLimit) {
   }
 
   return {
-    continuousFluid: "Hipertonica 3% o 7.5% si requiere correccion activa; SSN 0.9% solo para via/medicamentos",
+    continuousFluid: "Solucion salina 3% si requiere correccion activa",
     continuousRate: hypertonicRate,
     selectedInfusion: "Solucion salina 3%",
     sodiumInfusateNa: selectedInfusate?.sodium,
@@ -215,7 +236,7 @@ function severeHyponatremiaContinuousPlan(patient, calculations, dailyLimit) {
     sodiumInfusateVolume12hMl: selectedInfusate?.volume12hMl,
     sodiumInfusateVolume24hMl: selectedInfusate?.volume24hMl,
     availableInfusions: hypertonicOptions,
-    text: `Suspender soluciones hipotonicas. Para correccion activa usar la solucion hipertonica indicada por protocolo y ajustar equivalencia si cambia la concentracion. ${hypertonicText}`,
+    text: `Suspender soluciones hipotonicas. ${hypertonicText}`,
     controls: ["Confirmar volemia y tonicidad", "Evitar aportes de agua libre durante fase activa", `No superar ${limits.max12h} mmol/L en 12 horas ni ${limits.max24h} mmol/L en 24 horas`]
   };
 }
@@ -359,19 +380,19 @@ function hypokalemiaControlText(k) {
 
 function magnesiumFluidPlan(patient, classification) {
   if (classification.disorder.includes("Hipomagnesemia")) {
-    const availableInfusions = "Magnesio 40 mg en 100 mL de solucion salina 0.9%";
+    const availableInfusions = "Magnesio 4000 mg endovenosos para 24 horas";
     const renalRisk = hasAny(patient.comorbidities || [], ["erc", "anuria", "oliguria"]);
-    const infusionRateMlH = renalRisk ? 50 : 100;
-    const magnesiumRateMgH = Math.round(infusionRateMlH * 0.4);
+    const infusionRateMlH = null;
+    const magnesiumRateMgH = Math.round(4000 / 24);
     return {
-      continuousFluid: "Magnesio 40 mg/100 mL en SSN 0.9%",
-      continuousRate: infusionRateMlH,
-      selectedInfusion: "Magnesio 40 mg en 100 mL de SSN 0.9%",
+      continuousFluid: "Reposicion de magnesio IV 4000 mg/24 h",
+      continuousRate: null,
+      selectedInfusion: "Magnesio 4000 mg endovenosos para 24 horas",
       infusionRateMlH,
       magnesiumRateMgH,
       availableInfusions,
-      text: `Liquidos continuos: usar ${availableInfusions} a ${infusionRateMlH} mL/h (${magnesiumRateMgH} mg/h) por bomba segun protocolo institucional; no dejar infusion continua de magnesio salvo indicacion/protocolo de UCI. Mantener SSN 0.9% a 20 a 30 cc/h para via si requiere dosis repetidas.`,
-      controls: ["Suspender reposicion si arreflexia, depresion respiratoria o deterioro renal"]
+      text: `Reposicion de magnesio: administrar magnesio 4000 mg endovenosos para 24 horas por bomba. Velocidad promedio de aporte: ${magnesiumRateMgH} mg/h. Ajustar o suspender si hay deterioro renal, arreflexia, depresion respiratoria, hipotension o signos de toxicidad.`,
+      controls: ["Suspender reposicion si arreflexia, depresion respiratoria o deterioro renal", ...(renalRisk ? ["Funcion renal reducida: considerar ajuste y vigilancia mas estrecha"] : [])]
     };
   }
   return noElectrolyteFluidPlan(patient, "Suspender soluciones, nutricion o medicamentos que aporten magnesio.");
@@ -730,8 +751,8 @@ function magnesiumOrder(patient, lab, calculations, classification) {
         ? [ecg, "Magnesio, potasio, calcio y creatinina en 4 a 6 horas", "Reflejos y frecuencia respiratoria si dosis repetidas", ...fluidPlan.controls]
         : [ecg, "Magnesio, potasio, calcio y creatinina en 6 a 12 horas si IV", "Control en 24 horas si manejo oral", ...fluidPlan.controls],
       text: severe
-        ? `Paciente con hipomagnesemia severa o sintomatica (Mg ${mg} mg/dL). ${ecg} Administrar reposicion de magnesio IV segun protocolo institucional bajo monitorizacion si hay arritmia, convulsion o QT prolongado. Preparacion disponible: magnesio 40 mg en 100 mL de solucion salina 0.9%, pasar por bomba y ajustar numero de dosis segun severidad, funcion renal y respuesta. ${fluidPlan.text} Solicitar magnesio, potasio, calcio y creatinina de control en 4 a 6 horas.`
-        : `Paciente con ${classification.disorder.toLowerCase()} (Mg ${mg} mg/dL). ${ecg} Si requiere reposicion IV, usar magnesio 40 mg en 100 mL de solucion salina 0.9% por bomba, ajustando numero de dosis segun control, funcion renal y protocolo institucional; si es leve y tolera via oral, considerar reposicion oral. ${fluidPlan.text} Solicitar magnesio, potasio, calcio y creatinina de control segun severidad.`,
+        ? `Paciente con hipomagnesemia severa o sintomatica (Mg ${mg} mg/dL). ${ecg} ${fluidPlan.text} Solicitar magnesio, potasio, calcio y creatinina de control en 4 a 6 horas.`
+        : `Paciente con ${classification.disorder.toLowerCase()} (Mg ${mg} mg/dL). ${ecg} ${fluidPlan.text} Solicitar magnesio, potasio, calcio y creatinina de control segun severidad.`,
       justification: "El magnesio bajo puede perpetuar hipokalemia, hipocalcemia y riesgo arritmico."
     });
   }

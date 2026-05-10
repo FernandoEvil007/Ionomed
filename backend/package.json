@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "validate:clinical": "node src/clinical/validate-cases.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

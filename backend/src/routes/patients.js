@@ -23,9 +23,9 @@ router.use(authRequired);
 const patientSchema = z.object({
   localIdentifier: z.string().optional(),
   nameOrCode: z.string().min(1),
-  age: z.coerce.number().min(0).max(120),
-  sex: z.enum(["male", "female"]),
-  weightKg: z.coerce.number().min(1),
+  age: z.coerce.number().min(0).max(120).optional().nullable(),
+  sex: z.enum(["male", "female"]).default("male"),
+  weightKg: z.coerce.number().min(1).optional().nullable(),
   heightCm: z.coerce.number().optional().nullable(),
   clinicalArea: z.enum(["urgencias", "hospitalizacion", "uci", "ambulatorio"]).default("hospitalizacion"),
   location: z.string().optional(),

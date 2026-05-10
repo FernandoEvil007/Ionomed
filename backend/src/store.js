@@ -177,9 +177,9 @@ export async function initStore() {
       createdBy INTEGER NOT NULL,
       localIdentifier TEXT,
       nameOrCode TEXT NOT NULL,
-      age REAL NOT NULL,
+      age REAL,
       sex TEXT NOT NULL,
-      weightKg REAL NOT NULL,
+      weightKg REAL,
       heightCm REAL,
       clinicalArea TEXT DEFAULT 'hospitalizacion',
       location TEXT,
@@ -250,6 +250,9 @@ export async function initStore() {
       markedDoneAt TEXT,
       markedNotDoneAt TEXT,
       auditEvents TEXT DEFAULT '[]',
+      safety TEXT,
+      missingData TEXT DEFAULT '[]',
+      controls TEXT DEFAULT '[]',
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
       updatedAt TEXT,
       FOREIGN KEY(institutionId) REFERENCES institutions(id),
@@ -258,6 +261,77 @@ export async function initStore() {
       FOREIGN KEY(createdBy) REFERENCES users(id)
     )
   `);
+  await ensurePatientOptionalFields();
+  await ensureOrderClinicalColumns();
+}
+
+async function ensurePatientOptionalFields() {
+  const columns = await all("PRAGMA table_info(patients)");
+  const ageColumn = columns.find((column) => column.name === "age");
+  const weightColumn = columns.find((column) => column.name === "weightKg");
+  if (!ageColumn?.notnull && !weightColumn?.notnull) return;
+
+  await run("PRAGMA foreign_keys = OFF");
+  await run("BEGIN TRANSACTION");
+  try {
+    await run(`
+      CREATE TABLE patients_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        institutionId INTEGER NOT NULL,
+        createdBy INTEGER NOT NULL,
+        localIdentifier TEXT,
+        nameOrCode TEXT NOT NULL,
+        age REAL,
+        sex TEXT NOT NULL,
+        weightKg REAL,
+        heightCm REAL,
+        clinicalArea TEXT DEFAULT 'hospitalizacion',
+        location TEXT,
+        volumeStatus TEXT DEFAULT 'incierto',
+        oralRouteAvailable INTEGER DEFAULT 1,
+        venousAccess TEXT DEFAULT 'desconocido',
+        urineOutputMlKgH REAL,
+        comorbidities TEXT DEFAULT '[]',
+        medications TEXT DEFAULT '[]',
+        neurologicSymptoms TEXT DEFAULT '[]',
+        cardiovascularSymptoms TEXT DEFAULT '[]',
+        isActive INTEGER DEFAULT 1,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT,
+        FOREIGN KEY(institutionId) REFERENCES institutions(id),
+        FOREIGN KEY(createdBy) REFERENCES users(id)
+      )
+    `);
+    await run(`
+      INSERT INTO patients_new (
+        id, institutionId, createdBy, localIdentifier, nameOrCode, age, sex, weightKg,
+        heightCm, clinicalArea, location, volumeStatus, oralRouteAvailable, venousAccess,
+        urineOutputMlKgH, comorbidities, medications, neurologicSymptoms,
+        cardiovascularSymptoms, isActive, createdAt, updatedAt
+      )
+      SELECT
+        id, institutionId, createdBy, localIdentifier, nameOrCode, age, sex, weightKg,
+        heightCm, clinicalArea, location, volumeStatus, oralRouteAvailable, venousAccess,
+        urineOutputMlKgH, comorbidities, medications, neurologicSymptoms,
+        cardiovascularSymptoms, isActive, createdAt, updatedAt
+      FROM patients
+    `);
+    await run("DROP TABLE patients");
+    await run("ALTER TABLE patients_new RENAME TO patients");
+    await run("COMMIT");
+  } catch (error) {
+    await run("ROLLBACK");
+    throw error;
+  } finally {
+    await run("PRAGMA foreign_keys = ON");
+  }
+}
+
+async function ensureOrderClinicalColumns() {
+  const columns = new Set((await all("PRAGMA table_info(orders)")).map((column) => column.name));
+  if (!columns.has("safety")) await run("ALTER TABLE orders ADD COLUMN safety TEXT");
+  if (!columns.has("missingData")) await run("ALTER TABLE orders ADD COLUMN missingData TEXT DEFAULT '[]'");
+  if (!columns.has("controls")) await run("ALTER TABLE orders ADD COLUMN controls TEXT DEFAULT '[]'");
 }
 
 export async function findInstitutionByName(name) {
@@ -331,9 +405,9 @@ export async function createPatient(data) {
       data.createdBy,
       text(data.localIdentifier),
       text(data.nameOrCode),
-      data.age,
+      data.age ?? null,
       data.sex,
-      data.weightKg,
+      data.weightKg ?? null,
       data.heightCm ?? null,
       data.clinicalArea,
       text(data.location),
@@ -365,9 +439,9 @@ export async function updatePatient(id, institutionId, data) {
     [
       text(next.localIdentifier),
       text(next.nameOrCode),
-      next.age,
+      next.age ?? null,
       next.sex,
-      next.weightKg,
+      next.weightKg ?? null,
       next.heightCm ?? null,
       next.clinicalArea,
       text(next.location),
@@ -482,8 +556,8 @@ export async function createOrders(orders, context) {
     const result = await run(
       `INSERT INTO orders (
         institutionId, patientId, labId, createdBy, disorder, severity,
-        priority, suggestedText, alerts, auditEvents
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        priority, suggestedText, alerts, auditEvents, safety, missingData, controls
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         context.institutionId,
         context.patientId,
@@ -494,7 +568,10 @@ export async function createOrders(orders, context) {
         order.priority,
         order.suggestedText,
         json(order.alerts, []),
-        json(context.auditEvents, [])
+        json(context.auditEvents, []),
+        json(order.safety, null),
+        json(order.missingData, []),
+        json(order.controls, [])
       ]
     );
     created.push(normalizeOrder(await get("SELECT * FROM orders WHERE id = ?", [result.id])));
