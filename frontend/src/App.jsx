@@ -143,6 +143,7 @@ function AuthScreen({ onLogin }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [recoveryQuestion, setRecoveryQuestion] = useState("");
+  const [installPrompt, setInstallPrompt] = useState(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
@@ -160,6 +161,25 @@ function AuthScreen({ onLogin }) {
   });
 
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    const handler = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  async function installApp() {
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice.catch(() => null);
+      setInstallPrompt(null);
+      return;
+    }
+    setNotice("Para instalar IonoMed: abre el menu del navegador y elige Instalar app o Agregar a pantalla de inicio.");
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -285,6 +305,7 @@ function AuthScreen({ onLogin }) {
               </button>
             </>
           )}
+          <button type="button" className="btn secondary full" onClick={installApp}><Download size={18} /> Instalar IonoMed</button>
         </form>
       </section>
     </main>
@@ -293,6 +314,7 @@ function AuthScreen({ onLogin }) {
 
 function MainApp({ session, onLogout }) {
   const [theme, setTheme] = useState(getStoredTheme);
+  const [installPrompt, setInstallPrompt] = useState(null);
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientForm, setPatientForm] = useState(initialPatient);
@@ -320,6 +342,25 @@ function MainApp({ session, onLogout }) {
     loadPatients();
     loadDashboard();
   }, []);
+
+  useEffect(() => {
+    const handler = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  async function installApp() {
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice.catch(() => null);
+      setInstallPrompt(null);
+      return;
+    }
+    setMessage("Para instalar IonoMed: abre el menu del navegador y elige Instalar app o Agregar a pantalla de inicio.");
+  }
 
   async function loadPatients() {
     try {
@@ -475,6 +516,7 @@ function MainApp({ session, onLogout }) {
         </div>
         <div className="topbar-actions">
           <span className="badge">{roleLabel(session.user?.professionalRole)}</span>
+          <button className="btn secondary install-button" type="button" onClick={installApp}><Download size={18} /> Instalar</button>
           <button
             className="btn ghost"
             type="button"
@@ -520,6 +562,10 @@ function MainApp({ session, onLogout }) {
             if (fullPatient) selectPatient(fullPatient);
           }}
         />
+        <MobileDashboardPanels dashboard={dashboard} onSelectPatient={(patient) => {
+          const fullPatient = patients.find((item) => String(item._id) === String(patient._id || patient.patientId));
+          if (fullPatient) selectPatient(fullPatient);
+        }} />
 
         <section className="workbench">
           <aside className={`card patient-sidebar ${patientPanelOpen ? "open" : "collapsed"}`}>
@@ -575,7 +621,7 @@ function MainApp({ session, onLogout }) {
 
           <section className="card workspace-card">
             <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />
-            <div className="tabs">
+            <div className="tabs app-tabs">
               <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => setTab("nuevo")}>Paciente</button>
               <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => setTab("laboratorio")}>Laboratorios</button>
               <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => setTab("resultado")}>Resultado</button>
@@ -679,6 +725,52 @@ function DashboardPanels({ dashboard, onSelectPatient }) {
           </details>
         )}
       </div>
+    </section>
+  );
+}
+
+function MobileDashboardPanels({ dashboard, onSelectPatient }) {
+  if (!dashboard) return null;
+  const alerts = dashboard.criticalAlerts || [];
+  const controls = dashboard.controls || [];
+  const nextAlert = alerts[0];
+  const nextControl = controls[0];
+
+  return (
+    <section className="mobile-dashboard">
+      <div className="mobile-dashboard-strip">
+        <button type="button" className="mobile-stat danger" onClick={() => nextAlert && onSelectPatient({ patientId: nextAlert.patientId })}>
+          <strong>{alerts.length}</strong>
+          <span>Alertas</span>
+        </button>
+        <button type="button" className="mobile-stat" onClick={() => nextControl && onSelectPatient({ patientId: nextControl.patientId })}>
+          <strong>{controls.length}</strong>
+          <span>Controles</span>
+        </button>
+        <div className="mobile-stat">
+          <strong>{dashboard.counts?.activePatients ?? 0}</strong>
+          <span>Activos</span>
+        </div>
+      </div>
+      {(nextAlert || nextControl) && (
+        <details className="mobile-dashboard-details">
+          <summary>Ver prioridad clínica</summary>
+          <div>
+            {nextAlert && (
+              <button type="button" className="mobile-priority-row" onClick={() => onSelectPatient({ patientId: nextAlert.patientId })}>
+                <span><strong>{nextAlert.patientName}</strong><small>{nextAlert.disorder}</small></span>
+                <b className={`badge ${nextAlert.priority}`}>{nextAlert.controlValue || nextAlert.priority}</b>
+              </button>
+            )}
+            {nextControl && (
+              <button type="button" className="mobile-priority-row" onClick={() => onSelectPatient({ patientId: nextControl.patientId })}>
+                <span><strong>{nextControl.patientName}</strong><small>{nextControl.disorder}</small></span>
+                <b>{formatShortDate(nextControl.dueAt)}</b>
+              </button>
+            )}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

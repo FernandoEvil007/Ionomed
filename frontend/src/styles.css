@@ -460,6 +460,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 
 .dashboard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .dashboard-grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mobile-dashboard { display: none; }
 .dashboard-hero {
   display: grid;
   grid-template-columns: minmax(0, 0.75fr) minmax(260px, 1fr);
@@ -566,6 +567,82 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   white-space: nowrap;
 }
 .tab.active { background: var(--brand-soft); border-color: var(--brand-border); color: var(--brand); }
+
+.mobile-dashboard-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.mobile-stat {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  text-align: left;
+}
+.mobile-stat strong {
+  color: var(--heading);
+  font-size: 1rem;
+  line-height: 1;
+}
+.mobile-stat span {
+  color: var(--subtle);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+.mobile-stat.danger {
+  border-color: #fecaca;
+  background: var(--danger-soft);
+}
+.mobile-dashboard-details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.mobile-dashboard-details summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--heading);
+  font-weight: 900;
+  list-style: none;
+  font-size: 0.82rem;
+}
+.mobile-dashboard-details summary::-webkit-details-marker { display: none; }
+.mobile-dashboard-details > div {
+  display: grid;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.mobile-priority-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+.mobile-priority-row span {
+  display: grid;
+  min-width: 0;
+}
+.mobile-priority-row strong { font-size: 0.84rem; }
+.mobile-priority-row small {
+  overflow: hidden;
+  color: var(--subtle);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-priority-row b { font-size: 0.72rem; }
 
 .patient-treatment-panel {
   display: grid;
@@ -1131,38 +1208,37 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 
 @media (max-width: 620px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .app-shell { padding-bottom: 70px; }
   .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 7px;
+    gap: 8px;
+    padding: 7px 8px;
   }
   .logo { gap: 8px; }
-  .logo-mark { width: 32px; height: 32px; border-radius: 8px; }
+  .logo-mark { width: 30px; height: 30px; border-radius: 8px; }
   .logo small { display: none; }
   .topbar-actions {
-    width: 100%;
+    width: auto;
     display: flex;
     flex-wrap: nowrap;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 1px;
+    justify-content: flex-end;
+    gap: 5px;
+    overflow: visible;
+    padding: 0;
   }
-  .topbar-actions .badge {
-    max-width: 44vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 3px 6px;
-    font-size: 0.68rem;
-  }
+  .topbar-actions .badge { display: none; }
   .topbar-actions .btn {
     flex: 0 0 auto;
-    min-height: 34px;
-    padding: 6px 8px;
-    gap: 4px;
-    font-size: 0.78rem;
+    min-height: 32px;
+    padding: 6px;
+    gap: 0;
+    font-size: 0;
+    border-radius: 8px;
   }
-  .topbar-actions .btn svg { width: 15px; height: 15px; }
+  .topbar-actions .btn svg { width: 16px; height: 16px; }
+  .topbar-actions .install-button { display: inline-flex; }
   .btn { min-height: 38px; }
   input, select, textarea { font-size: 16px; }
   .dashboard-summary { gap: 7px; }
@@ -1172,6 +1248,8 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .metric { padding: 7px 6px; }
   .metric strong { font-size: 0.98rem; }
   .metric small { font-size: 0.68rem; line-height: 1.15; }
+  .dashboard-grid.compact { display: none; }
+  .mobile-dashboard { display: grid; gap: 7px; }
   .dashboard-grid.compact { gap: 7px; }
   .dashboard-panel-title .badge { padding: 3px 7px; font-size: 0.68rem; }
   .dashboard-panel p { margin-bottom: 0; font-size: 0.84rem; }
@@ -1201,8 +1279,29 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     font-size: 0.78rem;
     line-height: 1.2;
   }
-  .tabs { margin: -3px -6px 8px; padding: 3px 6px 6px; gap: 4px; }
-  .tab { padding: 7px 9px; font-size: 0.82rem; }
+  .app-tabs {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 20;
+    margin: 0;
+    padding: 6px;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--topbar);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  }
+  .app-tabs .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 4px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    text-align: center;
+  }
   .card h1, .summary-card h1 { font-size: 1.16rem; }
   .card h2, .summary-card h2 { font-size: 0.96rem; }
   .clinical-section,

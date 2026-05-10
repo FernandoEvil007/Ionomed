@@ -1,14 +1,24 @@
 {
   "name": "IonoMed",
   "short_name": "IonoMed",
+  "id": "/",
   "description": "Soporte clinico para trastornos hidroelectroliticos",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#f3f5f7",
   "theme_color": "#0f766e",
   "categories": ["medical", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Nuevo paciente",
+      "short_name": "Paciente",
+      "url": "/",
+      "description": "Abrir IonoMed para crear o evaluar un paciente"
+    }
+  ],
   "icons": [
     {
       "src": "/icon.svg",
