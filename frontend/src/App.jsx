@@ -554,13 +554,15 @@ function MainApp({ session, onLogout }) {
   const dashboardPatientsById = new Map((dashboard?.patients || []).map((patient) => [String(patient._id || patient.id), patient]));
   const patientCards = patients.map((patient) => {
     const summary = dashboardPatientsById.get(String(patient._id)) || {};
+    const activeOrders = summary.activeOrders || (summary.topOrder ? [summary.topOrder] : []);
+    const activeElectrolyteCount = uniqueActiveElectrolyteCount(activeOrders);
     return {
       ...patient,
       latestLab: summary.latestLab || null,
       latestElectrolytes: summary.latestElectrolytes || {},
       topOrder: summary.topOrder || null,
-      activeOrders: summary.activeOrders || (summary.topOrder ? [summary.topOrder] : []),
-      activeOrderCount: summary.activeOrderCount || 0,
+      activeOrders,
+      activeOrderCount: activeElectrolyteCount,
       riskPriority: summary.riskPriority || "baja"
     };
   });
@@ -677,11 +679,11 @@ function MainApp({ session, onLogout }) {
                     <span><strong>{patient.nameOrCode}</strong><small>{patient.age ? `${patient.age} años · ` : ""}{patient.clinicalArea}</small></span>
                     <PatientDisorderList orders={patient.activeOrders || []} lab={patient.latestElectrolytes || patient.latestLab} />
                     <span className="patient-clinical-meta">
-                      <small>{patient.activeOrderCount ? `${patient.activeOrderCount} trastorno(s) activo(s)` : "Sin alerta activa"}</small>
+                      <small>{patient.activeOrderCount ? `${patient.activeOrderCount} electrolito(s) alterado(s)` : "Sin alerta activa"}</small>
                       <b>{patientControlSummary(patient)}</b>
                     </span>
                     {patient.topOrder && (
-                      <span className="patient-solution-line">
+                      <span className="patient-solution-line" title={patientCurrentSolutions(patient, { compact: false })}>
                         <small>{patientCurrentSolutions(patient)}</small>
                       </span>
                     )}
@@ -2848,6 +2850,10 @@ function priorityShortLabel(priority) {
   }[priority] || "Bajo";
 }
 
+function uniqueActiveElectrolyteCount(orders = []) {
+  return new Set((orders || []).filter(Boolean).map((order) => disorderKey(order.disorder))).size;
+}
+
 function patientControlSummary(patient) {
   const lab = patient.latestLab || {};
   const disorder = String(patient.topOrder?.disorder || "").toLowerCase();
@@ -2856,7 +2862,7 @@ function patientControlSummary(patient) {
   if (disorder.includes("magnes") && lab.magnesium !== undefined && lab.magnesium !== null) return `Mg ${lab.magnesium}`;
   if (disorder.includes("fosf") && lab.phosphorus !== undefined && lab.phosphorus !== null) return `P ${lab.phosphorus}`;
   if (disorder.includes("calcemia") && (lab.calciumIonized !== undefined || lab.calciumTotal !== undefined)) return `Ca ${lab.calciumIonized ?? lab.calciumTotal}`;
-  return patient.activeOrderCount ? `${patient.activeOrderCount} orden(es)` : "Sin control";
+  return patient.activeOrderCount ? `${patient.activeOrderCount} electrolito(s)` : "Sin control";
 }
 
 function PatientElectrolyteStrip({ lab }) {
@@ -2940,20 +2946,46 @@ function displayCompact(value) {
   return value;
 }
 
-function patientCurrentSolution(patient) {
-  const current = orderCurrentSolution(patient.topOrder || {});
-  return current.rate ? `${current.solution} · ${current.rate}` : current.solution;
+function compactSolutionName(value) {
+  return String(value || "No definida")
+    .replace(/^infusion de [^:]+:\s*/i, "")
+    .replace(/\bsolucion salina\b/gi, "SSN")
+    .replace(/\bsolución salina\b/gi, "SSN")
+    .replace(/\bsolucion\b/gi, "Sol.")
+    .replace(/\bSolucion\b/g, "Sol.")
+    .replace(/\bSSN 0\.9%\b/gi, "SSN 0.9%")
+    .replace(/\bde Katrol\b/gi, "Katrol")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function patientCurrentSolutions(patient) {
+function patientCurrentSolution(patient, { compact = true } = {}) {
+  const current = orderCurrentSolution(patient.topOrder || {});
+  const solution = compact ? compactSolutionName(current.solution) : current.solution;
+  return current.rate ? `${solution} · ${current.rate}` : solution;
+}
+
+function patientCurrentSolutions(patient, { compact = true } = {}) {
   const orders = patient.activeOrders?.length ? patient.activeOrders : (patient.topOrder ? [patient.topOrder] : []);
+  const seen = new Set();
   const solutions = orders
+    .filter((order) => {
+      const key = disorderKey(order?.disorder);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map((order) => {
       const current = orderCurrentSolution(order || {});
-      return current.rate ? `${order.disorder}: ${current.solution} ${current.rate}` : `${order.disorder}: ${current.solution}`;
+      const solution = compact ? compactSolutionName(current.solution) : current.solution;
+      return current.rate ? `${solution} ${current.rate}` : solution;
     })
     .filter(Boolean);
-  return solutions.length ? solutions.join(" | ") : patientCurrentSolution(patient);
+  if (!solutions.length) return patientCurrentSolution(patient, { compact });
+  if (!compact) return solutions.join(" | ");
+  const visible = solutions.slice(0, 2);
+  const remaining = solutions.length - visible.length;
+  return remaining > 0 ? `${visible.join(" | ")} +${remaining}` : visible.join(" | ");
 }
 
 function orderCurrentSolution(order) {

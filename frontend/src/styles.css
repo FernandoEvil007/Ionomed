@@ -583,7 +583,9 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 :root[data-theme="dark"] .patient-disorder.leve { background: #10291f; color: #bbf7d0; border-color: #1f7a4a; }
 .patient-solution-line {
   display: block;
-  padding: 6px 8px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
   border-radius: 7px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -591,6 +593,8 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 .patient-solution-line small {
   display: block;
   color: var(--muted-strong);
+  font-size: 0.7rem;
+  line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
