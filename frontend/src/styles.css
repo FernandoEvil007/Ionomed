@@ -135,8 +135,12 @@ button { cursor: pointer; }
 .grid { display: grid; gap: 14px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.patient-identity-grid { grid-template-columns: minmax(190px, 1.25fr) minmax(130px, 0.9fr) minmax(68px, 0.45fr) minmax(106px, 0.65fr) minmax(82px, 0.5fr); align-items: end; }
 .patient-demographics-grid { grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(90px, 0.9fr); }
 .clinical-context-extra { grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.8fr) max-content; align-items: end; }
+.risk-checklist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.lab-basic-grid { grid-template-columns: repeat(6, minmax(92px, 1fr)); }
+.lab-complement-grid { grid-template-columns: repeat(4, minmax(110px, 1fr)); }
 
 .card, .summary-card {
   background: var(--surface);
@@ -1503,9 +1507,14 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 
 @media (max-width: 850px) {
   .auth-card, .grid.two, .grid.three, .dashboard-grid, .dashboard-grid.compact { grid-template-columns: 1fr; }
+  .patient-identity-grid { grid-template-columns: minmax(0, 1fr) minmax(92px, 0.85fr) minmax(74px, 0.7fr); }
+  .patient-name-field { grid-column: span 2; }
   .patient-demographics-grid { grid-template-columns: minmax(72px, 0.72fr) minmax(108px, 1fr) minmax(82px, 0.82fr); }
   .clinical-context-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .clinical-context-extra { grid-template-columns: minmax(150px, 1.25fr) minmax(108px, 0.85fr) max-content; }
+  .risk-checklist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .lab-basic-grid,
+  .lab-complement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-hero { grid-template-columns: 1fr; gap: 8px; }
   .topbar { padding: 8px 10px; align-items: center; }
   .topbar-actions { justify-content: flex-end; }
@@ -1663,23 +1672,41 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     padding: 9px;
     gap: 9px;
   }
+  .patient-identity-grid,
+  .lab-basic-grid,
+  .lab-complement-grid {
+    gap: 7px;
+  }
   .patient-demographics-grid,
   .clinical-context-grid,
   .clinical-context-extra {
     gap: 7px;
   }
+  .patient-identity-grid label,
+  .lab-basic-grid label,
+  .lab-complement-grid label,
   .patient-demographics-grid label,
   .clinical-context-grid label,
   .clinical-context-extra label {
     font-size: 0.76rem;
     gap: 3px;
   }
+  .patient-identity-grid input,
+  .patient-identity-grid select,
+  .lab-basic-grid input,
+  .lab-complement-grid input,
   .patient-demographics-grid input,
   .patient-demographics-grid select,
   .clinical-context-grid select,
   .clinical-context-extra input {
     min-height: 36px;
     padding: 7px 8px;
+  }
+  .risk-checklist-grid {
+    gap: 7px;
+  }
+  .risk-checklist-grid .check-section summary {
+    min-height: 46px;
   }
   .clinical-context-extra .inline-check {
     min-height: 36px;
@@ -1803,9 +1830,21 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card, .summary-card { padding: 9px; }
   .check-grid.compact { grid-template-columns: 1fr; }
+  .patient-identity-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(76px, 0.8fr) minmax(58px, 0.62fr);
+  }
+  .patient-name-field,
+  .patient-identity-grid label:nth-child(2) {
+    grid-column: span 3;
+  }
+  .risk-checklist-grid,
   .clinical-context-grid,
   .clinical-context-extra {
     grid-template-columns: 1fr;
+  }
+  .lab-basic-grid,
+  .lab-complement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .patient-demographics-grid {
     grid-template-columns: minmax(58px, 0.7fr) minmax(98px, 1fr) minmax(70px, 0.8fr);

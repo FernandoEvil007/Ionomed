@@ -1606,11 +1606,9 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
   return (
     <form className="grid" onSubmit={onSubmit}>
       <FormSection title="1. Identificación" summary="Datos mínimos para ubicar al paciente" open>
-      <div className="grid two">
-        <label>Nombre o código del paciente<input value={form.nameOrCode || ""} onChange={(e) => update("nameOrCode", e.target.value)} required /></label>
-        <label>Identificación local<input value={form.localIdentifier || ""} onChange={(e) => update("localIdentifier", e.target.value)} /></label>
-      </div>
-      <div className="grid three patient-demographics-grid">
+      <div className="grid patient-identity-grid">
+        <label className="patient-name-field">Nombre o código<input value={form.nameOrCode || ""} onChange={(e) => update("nameOrCode", e.target.value)} required /></label>
+        <label>Identificación<input value={form.localIdentifier || ""} onChange={(e) => update("localIdentifier", e.target.value)} /></label>
         <label>Edad<input type="number" value={form.age || ""} onChange={(e) => update("age", e.target.value)} /></label>
         <label>Sexo
           <select value={form.sex} onChange={(e) => update("sex", e.target.value)}>
@@ -1659,10 +1657,12 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
       </FormSection>
 
       <FormSection title="3. Riesgos clínicos" summary="Toca cada grupo solo si aplica">
-      <Checklist title="Comorbilidades" items={comorbidities} selected={form.comorbidities || []} onToggle={(value) => toggle("comorbidities", value)} />
-      <Checklist title="Medicamentos relevantes" items={medications} selected={form.medications || []} onToggle={(value) => toggle("medications", value)} />
-      <Checklist title="Signos neurológicos" items={neuroSymptoms} selected={form.neurologicSymptoms || []} onToggle={(value) => toggle("neurologicSymptoms", value)} />
-      <Checklist title="Síntomas cardiovasculares / ECG" items={cardioSymptoms} selected={form.cardiovascularSymptoms || []} onToggle={(value) => toggle("cardiovascularSymptoms", value)} />
+      <div className="risk-checklist-grid">
+        <Checklist title="Comorbilidades" items={comorbidities} selected={form.comorbidities || []} onToggle={(value) => toggle("comorbidities", value)} />
+        <Checklist title="Medicamentos relevantes" items={medications} selected={form.medications || []} onToggle={(value) => toggle("medications", value)} />
+        <Checklist title="Signos neurológicos" items={neuroSymptoms} selected={form.neurologicSymptoms || []} onToggle={(value) => toggle("neurologicSymptoms", value)} />
+        <Checklist title="Síntomas cardiovasculares / ECG" items={cardioSymptoms} selected={form.cardiovascularSymptoms || []} onToggle={(value) => toggle("cardiovascularSymptoms", value)} />
+      </div>
       </FormSection>
 
       <div className="form-actions">
@@ -1725,7 +1725,7 @@ function LabForm({ form, setForm, onSubmit, selectedPatient }) {
       </div>
       <FormSection title="1. Electrolitos básicos" summary="Valores principales para clasificar y ordenar" open>
         <label>Fecha y hora del laboratorio<input type="datetime-local" value={form.collectedAt} onChange={(e) => update("collectedAt", e.target.value)} /></label>
-        <div className="grid three quick-labs">
+        <div className="grid quick-labs lab-basic-grid">
           <Num label="Sodio mmol/L" value={form.sodium} onChange={(v) => update("sodium", v)} />
           <Num label="Potasio mmol/L" value={form.potassium} onChange={(v) => update("potassium", v)} />
           <Num label="Cloro mmol/L" value={form.chloride} onChange={(v) => update("chloride", v)} />
@@ -1735,7 +1735,7 @@ function LabForm({ form, setForm, onSubmit, selectedPatient }) {
         </div>
       </FormSection>
       <FormSection title="2. Datos complementarios" summary="Renal, ácido-base, osmolaridad y orina">
-        <div className="grid three quick-labs">
+        <div className="grid quick-labs lab-complement-grid">
           <Num label="Calcio ionizado" value={form.calciumIonized} onChange={(v) => update("calciumIonized", v)} />
           <Num label="Albúmina g/dL" value={form.albumin} onChange={(v) => update("albumin", v)} />
           <Num label="Glucosa mg/dL" value={form.glucose} onChange={(v) => update("glucose", v)} />
