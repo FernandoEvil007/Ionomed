@@ -1518,9 +1518,9 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         </div>
       </section>
 
-      <ClinicalWorkflow classifications={classifications} orders={orders} labs={patientDetails?.labs || []} />
+      <RepositionSummary orders={orders} />
 
-      <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits" open>
+      <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits">
         <div className="metrics">
           <Metric label="TFG CKD-EPI" value={display(calc.egfr, "mL/min/1.73m²")} />
           <Metric label="Cockcroft-Gault" value={display(calc.cockcroftGault, "mL/min")} />
@@ -1559,6 +1559,8 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
             order={order}
             calculations={calc}
             key={order._id || idx}
+            index={idx}
+            total={orders.length}
             onOrderUpdated={onOrderUpdated}
             settings={settings}
           />
@@ -1572,6 +1574,44 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         <Timeline labs={patientDetails?.labs || []} orders={orderHistory || []} />
       </FormSection>
     </div>
+  );
+}
+
+function RepositionSummary({ orders }) {
+  if (!orders?.length) return null;
+  return (
+    <section className="reposition-summary">
+      <div className="section-heading-row">
+        <div>
+          <h2>Reposiciones sugeridas</h2>
+          <p>{orders.length} plan(es) activo(s) segun los trastornos detectados.</p>
+        </div>
+        <span className="badge">{orders.length}</span>
+      </div>
+      <div className="reposition-grid">
+        {orders.map((order, idx) => {
+          const current = orderCurrentSolution(order);
+          const safety = order.safety || {};
+          const route = safety.recommendedAccess || safety.access || safety.route || safety.selectedRoute || "Confirmar via";
+          const control = order.controls?.[0] || "Control segun evolucion";
+          return (
+            <article className="reposition-card" key={order._id || `${order.disorder}-${idx}`}>
+              <div className="reposition-card-head">
+                <span>Reposicion {idx + 1}</span>
+                <b className={`badge ${order.priority || ""}`}>{order.priority || "prioridad"}</b>
+              </div>
+              <strong>{order.disorder}</strong>
+              <div className="reposition-details">
+                <small><b>Solucion</b>{current.solution}</small>
+                <small><b>Velocidad</b>{current.rate || "Definir con selector"}</small>
+                <small><b>Via</b>{route}</small>
+                <small><b>Control</b>{control}</small>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -1999,7 +2039,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
   );
 }
 
-function OrderCard({ order, calculations, onOrderUpdated, settings }) {
+function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, total = 1 }) {
   const [text, setText] = useState(order.editedText || order.suggestedText || "");
   const [comment, setComment] = useState(order.comment || "");
   const [copied, setCopied] = useState(false);
@@ -2059,6 +2099,7 @@ function OrderCard({ order, calculations, onOrderUpdated, settings }) {
     <article className="card order-card">
       <div className="order-card-header">
         <div>
+          {total > 1 && <small className="order-index">Reposicion {index + 1} de {total}</small>}
           <h3>{order.disorder}</h3>
           {order.status && <span className="badge">{statusLabel(order.status)}</span>}
           <span className={`badge ${order.priority}`}>{order.severity} · {order.priority}</span>
@@ -2067,7 +2108,6 @@ function OrderCard({ order, calculations, onOrderUpdated, settings }) {
       </div>
       <OrderAlerts order={order} />
       <OrderClinicalBrief order={order} />
-      <SafetyChecklist order={order} />
       <ElectrolyteSolutionSelector order={order} calculations={calculations} onTextCalculated={handleCalculatedText} settings={settings} />
       <OrderSafety order={order} />
       <label>Orden médica sugerida editable
@@ -2132,14 +2172,14 @@ function OrderAlerts({ order }) {
 
 function OrderClinicalBrief({ order }) {
   const safety = order.safety || {};
-  const speedValue = safety.infusionRateMlH || safety.continuousRate || safety.sodiumInfusateMaxRateMlH || safety.hydrationRate;
+  const current = orderCurrentSolution(order);
+  const route = safety.recommendedAccess || safety.access || safety.route || safety.selectedRoute || "Confirmar via";
+  const firstControl = order.controls?.[0] || "Control segun evolucion clinica";
   const items = [
-    ["Diagnóstico", order.disorder],
-    ["Severidad", order.severity],
-    ["Prioridad", order.priority],
-    ["Solución", safety.selectedInfusion || safety.continuousFluid || "según selector"],
-    ["Velocidad", speedValue ? `${speedValue} mL/h` : "No definida"],
-    ["Protocolo", safety.protocolVersion || "no registrado"]
+    ["Solucion", current.solution],
+    ["Velocidad", current.rate || "Definir con selector"],
+    ["Via", route],
+    ["Control inicial", firstControl]
   ];
   return (
     <div className="order-brief">
@@ -2186,93 +2226,117 @@ function OrderSafety({ order }) {
   const missing = order.missingData || [];
   if (!hasSafety && controls.length === 0 && missing.length === 0) return null;
 
-  const safetyItems = hasSafety ? [
-    ["protocolVersion", "Version protocolo", ""],
-    ["dataCompleteness", "Datos", ""],
-    ["sodiumMeasured", "Sodio medido", "mmol/L"],
-    ["sodiumCorrected", "Sodio corregido", "mmol/L"],
-    ["maxCorrection12h", "Max correccion 12 h", "mmol/L"],
-    ["maxCorrection8h", "Max correccion 8 h", "mmol/L"],
-    ["maxCorrection4h", "Max correccion 4 h", "mmol/L"],
-    ["maxCorrection24h", "Max 24 h", "mmol/L"],
-    ["maxDecrease12h", "Descenso max 12 h", "mmol/L"],
-    ["maxDecrease8h", "Descenso max 8 h", "mmol/L"],
-    ["maxDecrease4h", "Descenso max 4 h", "mmol/L"],
-    ["maxDecrease24h", "Descenso max 24 h", "mmol/L"],
-    ["target12h", "Meta Na 12 h", "mmol/L"],
-    ["target24h", "Meta Na 24 h", "mmol/L"],
-    ["targetInitialRise", "Meta inicial", ""],
-    ["availableInfusions", "Infusiones disponibles", ""],
-    ["selectedInfusion", "Mejor opcion sugerida", ""],
-    ["continuousFluid", "Liquido continuo", ""],
-    ["continuousRate", "Velocidad de infusion", "mL/h"],
-    ["sodiumInfusateNa", "Na de infusion", "mEq/L"],
-    ["sodiumInfusateChangePerLiter", "Cambio Na por litro", "mEq/L"],
-    ["sodiumInfusateMaxRateMlH", "Velocidad max Na", "mL/h"],
-    ["sodiumInfusateVolume12hMl", "Volumen max 12 h", "cc"],
-    ["sodiumInfusateVolume24hMl", "Volumen max 24 h", "cc"],
-    ["maxInfusionRateMlH", "Maximo permitido", "mL/h"],
-    ["potassiumRateMeqH", "Velocidad de potasio", "mEq/h"],
-    ["phosphateRateMmolH", "Velocidad de fosforo", "mmol/h"],
-    ["magnesiumRateMgH", "Velocidad de magnesio", "mg/h"],
-    ["estimated3PercentChangePerLiter", "NaCl 3% estimado", "mmol/L por litro"],
-    ["estimated3PercentRateFor05", "NaCl 3% para 0.5 mmol/L/h", "mL/h"],
-    ["freeWaterDeficitLiters", "Deficit agua libre", "L"],
-    ["selectedSolutionVolumeMl", "Volumen solucion a Na 140", "cc"],
-    ["solutionVolume12hMl", "Volumen solucion 12 h", "cc"],
-    ["solutionVolume24hMl", "Volumen solucion 24 h", "cc"],
-    ["water12hLiters", "Agua libre 12 h", "L"],
-    ["water24hLiters", "Agua libre 24 h", "L"],
-    ["potassium", "Potasio", "mmol/L"],
-    ["magnesium", "Magnesio", "mg/dL"],
-    ["phosphorus", "Fosforo", "mg/dL"],
-    ["calcium", "Calcio usado", "mg/dL"],
-    ["calciumTotal", "Calcio total", "mg/dL"],
-    ["calciumCorrected", "Calcio corregido", "mg/dL"],
-    ["calciumIonized", "Calcio ionizado", "mmol/L"],
-    ["calciumPhosphorusProduct", "Producto Ca x P", ""],
-    ["hydrationRate", "Hidratacion sugerida", "cc/h"],
-    ["egfr", "TFG estimada", "mL/min/1.73m2"],
-    ["peripheralMaxKclRate", "KCl periferico max", "mEq/h"],
-    ["centralMaxKclRate", "KCl central max", "mEq/h"],
-    ["peripheralMaxInfusionRateMlH", "Max periferico", "mL/h"],
-    ["centralMaxInfusionRateMlH", "Max central", "mL/h"]
-  ].filter(([key]) => order.safety[key] !== undefined && order.safety[key] !== null && order.safety[key] !== "") : [];
+  const safety = order.safety || {};
+  const groups = [
+    {
+      title: "Limites de correccion",
+      items: safetyFields(safety, [
+        ["maxCorrection24h", "Max 24 h", "mmol/L"],
+        ["maxCorrection12h", "Max 12 h", "mmol/L"],
+        ["maxCorrection8h", "Max 8 h", "mmol/L"],
+        ["maxCorrection4h", "Max 4 h", "mmol/L"],
+        ["maxDecrease24h", "Descenso 24 h", "mmol/L"],
+        ["maxDecrease12h", "Descenso 12 h", "mmol/L"],
+        ["target24h", "Meta 24 h", "mmol/L"],
+        ["target12h", "Meta 12 h", "mmol/L"]
+      ])
+    },
+    {
+      title: "Velocidades y volumenes",
+      items: safetyFields(safety, [
+        ["continuousRate", "Infusion", "mL/h"],
+        ["infusionRateMlH", "Infusion", "mL/h"],
+        ["sodiumInfusateMaxRateMlH", "Max Na", "mL/h"],
+        ["potassiumRateMeqH", "Potasio", "mEq/h"],
+        ["phosphateRateMmolH", "Fosforo", "mmol/h"],
+        ["magnesiumRateMgH", "Magnesio", "mg/h"],
+        ["hydrationRate", "Hidratacion", "cc/h"],
+        ["solutionVolume24hMl", "Volumen 24 h", "cc"]
+      ])
+    },
+    {
+      title: "Datos clave",
+      items: safetyFields(safety, [
+        ["sodiumMeasured", "Na medido", "mmol/L"],
+        ["sodiumCorrected", "Na corregido", "mmol/L"],
+        ["potassium", "K", "mmol/L"],
+        ["magnesium", "Mg", "mg/dL"],
+        ["phosphorus", "P", "mg/dL"],
+        ["calciumCorrected", "Ca corregido", "mg/dL"],
+        ["calciumIonized", "Ca ionico", "mmol/L"],
+        ["egfr", "TFG", "mL/min/1.73m2"]
+      ])
+    }
+  ].filter((group) => group.items.length);
+
+  const activeWarnings = [
+    safety.requiresEcg && "ECG requerido",
+    safety.requiresCardiacMonitoring && "Monitorizacion cardiaca",
+    safety.highRiskOds && "Alto riesgo de desmielinizacion",
+    safety.renalSevere && "Funcion renal severamente reducida",
+    safety.oliguria && "Oliguria",
+    safety.anuria && "Anuria",
+    safety.refeedingRisk && "Riesgo de realimentacion",
+    safety.overloadRisk && "Riesgo de sobrecarga hidrica",
+    safety.malignantContext && "Contexto maligno probable"
+  ].filter(Boolean);
 
   return (
-    <div className="safety-grid">
-      {hasSafety && (
-        <div className="safety-box">
-          <strong>Seguridad</strong>
-          {safetyItems.map(([key, label, unit]) => (
-            <small key={key}>{label}: {order.safety[key]}{unit ? ` ${unit}` : ""}</small>
-          ))}
-          {order.safety.requiresEcg && <small>ECG requerido</small>}
-          {order.safety.requiresCardiacMonitoring && <small>Monitorizacion cardiaca requerida</small>}
-          {order.safety.highRiskOds && <small>Alto riesgo de desmielinizacion osmotica</small>}
-          {order.safety.renalSevere && <small>Funcion renal severamente reducida</small>}
-          {order.safety.oliguria && <small>Oliguria</small>}
-          {order.safety.anuria && <small>Anuria</small>}
-          {order.safety.refeedingRisk && <small>Riesgo de realimentacion</small>}
-          {order.safety.overloadRisk && <small>Riesgo de sobrecarga hidrica</small>}
-          {order.safety.malignantContext && <small>Contexto maligno probable</small>}
-        </div>
-      )}
-      {controls.length > 0 && (
-        <div className="safety-box">
-          <strong>Controles</strong>
-          {controls.map((control, idx) => <small key={idx}>{control}</small>)}
-        </div>
-      )}
-      {missing.length > 0 && (
-        <div className="safety-box">
-          <strong>Datos no disponibles</strong>
-          <small>La orden se genera con los datos actuales y se debe ajustar cuando haya nuevos resultados.</small>
-          {missing.map((item, idx) => <small key={idx}>{item}</small>)}
-        </div>
-      )}
-    </div>
+    <details className="safety-details">
+      <summary>
+        <span>
+          <strong>Seguridad y seguimiento</strong>
+          <small>{controls.length} control(es) · {missing.length} dato(s) faltante(s)</small>
+        </span>
+        {activeWarnings.length > 0 && <b className="badge alta">{activeWarnings.length} alerta(s)</b>}
+      </summary>
+      <div className="safety-compact">
+        {activeWarnings.length > 0 && (
+          <section className="safety-compact-group warning">
+            <strong>Alertas activas</strong>
+            <div className="safety-pill-list">
+              {activeWarnings.map((warning) => <span className="safety-pill warn" key={warning}>{warning}</span>)}
+            </div>
+          </section>
+        )}
+        {controls.length > 0 && (
+          <section className="safety-compact-group">
+            <strong>Controles</strong>
+            <div className="safety-pill-list">
+              {controls.map((control, idx) => <span className="safety-pill" key={idx}>{control}</span>)}
+            </div>
+          </section>
+        )}
+        {missing.length > 0 && (
+          <section className="safety-compact-group missing">
+            <strong>Datos faltantes</strong>
+            <p>Completar cuando esten disponibles y recalcular si cambian la conducta.</p>
+            <div className="safety-pill-list">
+              {missing.map((item, idx) => <span className="safety-pill warn" key={idx}>{item}</span>)}
+            </div>
+          </section>
+        )}
+        {groups.map((group) => (
+          <section className="safety-compact-group" key={group.title}>
+            <strong>{group.title}</strong>
+            <div className="safety-pill-list">
+              {group.items.map((item) => <span className="safety-pill" key={item.key}><b>{item.label}</b>{item.value}</span>)}
+            </div>
+          </section>
+        ))}
+      </div>
+    </details>
   );
+}
+
+function safetyFields(safety, definitions) {
+  return definitions
+    .map(([key, label, unit]) => {
+      const rawValue = safety[key];
+      if (rawValue === undefined || rawValue === null || rawValue === "") return null;
+      return { key, label, value: `${rawValue}${unit ? ` ${unit}` : ""}` };
+    })
+    .filter(Boolean);
 }
 
 function Timeline({ labs, orders }) {
