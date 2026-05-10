@@ -126,6 +126,23 @@ const initialLab = {
   notes: ""
 };
 
+const emptySolutionForm = {
+  name: "",
+  disorder: "hipokalemia",
+  electrolyte: "potasio",
+  route: "periferico",
+  preparation: "",
+  content: "",
+  use: "",
+  concentration: "",
+  sodium: "",
+  potassium: "",
+  totalDoseMg: "",
+  hours: "",
+  rateMlH: "",
+  active: true
+};
+
 const themeStorageKey = "ionomed-theme";
 
 function getStoredTheme() {
@@ -326,6 +343,7 @@ function MainApp({ session, onLogout }) {
   const [patientDetails, setPatientDetails] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [institutionSettings, setInstitutionSettings] = useState(session.institution?.settings || {});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [tab, setTab] = useState("nuevo");
@@ -344,6 +362,7 @@ function MainApp({ session, onLogout }) {
   useEffect(() => {
     loadPatients();
     loadDashboard();
+    loadInstitutionSettings();
   }, []);
 
   useEffect(() => {
@@ -380,6 +399,15 @@ function MainApp({ session, onLogout }) {
       setDashboard(data);
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function loadInstitutionSettings() {
+    try {
+      const data = await api("/admin/settings");
+      setInstitutionSettings(data.settings || {});
+    } catch {
+      setInstitutionSettings(session.institution?.settings || {});
     }
   }
 
@@ -639,10 +667,11 @@ function MainApp({ session, onLogout }) {
                 patientDetails={patientDetails}
                 orderHistory={orderHistory}
                 onOrderUpdated={updateOrder}
+                settings={institutionSettings}
               />
             )}
-            {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} />}
-            {tab === "admin" && isAdmin && <AdminPanel />}
+            {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} />}
+            {tab === "admin" && isAdmin && <AdminPanel initialSettings={institutionSettings} onSettingsSaved={setInstitutionSettings} />}
           </section>
         </section>
       </main>
@@ -893,9 +922,28 @@ const solutionGroups = [
   }
 ];
 
-function SolutionsGuide({ evaluation }) {
+function customSolutionRows(settings = {}) {
+  return (settings.customSolutions || [])
+    .filter((solution) => solution?.active !== false && solution?.name)
+    .map((solution) => ({
+      name: solution.name,
+      match: [solution.disorder || solution.electrolyte || ""].filter(Boolean),
+      route: solution.route || "Segun acceso",
+      preparation: solution.preparation || "Preparacion institucional",
+      content: solution.content || concentrationText(solution),
+      use: solution.use || `Solucion institucional para ${solution.disorder || solution.electrolyte || "trastorno electrolitico"}.`
+    }));
+}
+
+function catalogGroups(settings = {}) {
+  const customRows = customSolutionRows(settings);
+  if (!customRows.length) return solutionGroups;
+  return [...solutionGroups, { title: "Soluciones institucionales", rows: customRows }];
+}
+
+function SolutionsGuide({ evaluation, settings }) {
   const disorders = (evaluation?.classifications || []).map((item) => (item.disorder || "").toLowerCase());
-  const matchingGroups = solutionGroups
+  const matchingGroups = catalogGroups(settings)
     .map((group) => ({
       ...group,
       rows: group.rows.filter((row) => row.match?.some((key) => disorders.some((disorder) => disorder.includes(key))))
@@ -903,9 +951,34 @@ function SolutionsGuide({ evaluation }) {
     .filter((group) => group.rows.length > 0);
 
   if (!evaluation) {
+    const groups = catalogGroups(settings);
     return (
       <section className="solutions-guide">
-        <div className="alert">Genera una evaluacion primero. Esta pestaña mostrara solo las soluciones que aplican a los trastornos detectados del paciente.</div>
+        <div>
+          <h2>Catalogo de soluciones</h2>
+          <p>Soluciones base e institucionales disponibles. Al generar una evaluacion se filtraran segun los trastornos detectados.</p>
+        </div>
+        {groups.map((group) => (
+          <details className="solution-group" key={group.title}>
+            <summary>
+              <strong>{group.title}</strong>
+              <span className="badge">{group.rows.length} opcion(es)</span>
+            </summary>
+            <div className="solution-table">
+              {group.rows.map((row, idx) => (
+                <article className="solution-row" key={`${group.title}-${idx}`}>
+                  <div>
+                    <strong>{row.name}</strong>
+                    <span className="badge">{routeLabel(row.route)}</span>
+                  </div>
+                  <small><b>Preparacion:</b> {row.preparation}</small>
+                  <small><b>Contenido:</b> {row.content}</small>
+                  <small><b>Uso:</b> {row.use}</small>
+                </article>
+              ))}
+            </div>
+          </details>
+        ))}
       </section>
     );
   }
@@ -942,8 +1015,9 @@ function SolutionsGuide({ evaluation }) {
   );
 }
 
-function AdminPanel() {
-  const [settings, setSettings] = useState(null);
+function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
+  const [settings, setSettings] = useState(initialSettings || null);
+  const [solutionForm, setSolutionForm] = useState(emptySolutionForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -965,6 +1039,36 @@ function AdminPanel() {
     setSettings((prev) => ({ ...(prev || {}), [field]: Number(value) }));
   }
 
+  function updateSolution(field, value) {
+    setSolutionForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function solutionPayload(solution) {
+    const numericFields = ["concentration", "sodium", "potassium", "totalDoseMg", "hours", "rateMlH"];
+    const payload = { ...solution, id: solution.id || `sol-${Date.now()}`, active: solution.active !== false };
+    for (const field of numericFields) {
+      payload[field] = solution[field] === "" || solution[field] === undefined ? "" : Number(solution[field]);
+    }
+    return payload;
+  }
+
+  function addSolution() {
+    if (!solutionForm.name.trim()) return setError("La solucion necesita un nombre.");
+    setSettings((prev) => ({
+      ...(prev || {}),
+      customSolutions: [...(prev?.customSolutions || []), solutionPayload(solutionForm)]
+    }));
+    setSolutionForm(emptySolutionForm);
+    setMessage("Solucion agregada. Recuerda guardar la configuracion.");
+  }
+
+  function removeSolution(id) {
+    setSettings((prev) => ({
+      ...(prev || {}),
+      customSolutions: (prev?.customSolutions || []).filter((solution) => solution.id !== id)
+    }));
+  }
+
   async function saveSettings(e) {
     e.preventDefault();
     setError("");
@@ -973,6 +1077,7 @@ function AdminPanel() {
     try {
       const data = await api("/admin/settings", { method: "PUT", body: JSON.stringify({ settings }) });
       setSettings(data.settings || {});
+      onSettingsSaved?.(data.settings || {});
       setMessage("Configuracion institucional guardada.");
     } catch (err) {
       setError(err.message);
@@ -1052,6 +1157,67 @@ function AdminPanel() {
         </div>
         <button className="btn primary" disabled={loading} type="submit"><Save size={18} /> Guardar configuracion</button>
       </form>
+
+      <section className="card grid">
+        <h2>Soluciones institucionales</h2>
+        <p>Agrega preparaciones propias del servicio. Se suman al catalogo base y aparecen en Soluciones y en el selector de ordenes.</p>
+        <div className="grid three">
+          <label>Nombre<input value={solutionForm.name} onChange={(e) => updateSolution("name", e.target.value)} placeholder="KCl central institucional" /></label>
+          <label>Trastorno
+            <select value={solutionForm.disorder} onChange={(e) => updateSolution("disorder", e.target.value)}>
+              <option value="hiponatremia">Hiponatremia</option>
+              <option value="hipernatremia">Hipernatremia</option>
+              <option value="hipokalemia">Hipokalemia</option>
+              <option value="hiperkalemia">Hiperkalemia</option>
+              <option value="hipomagnesemia">Hipomagnesemia</option>
+              <option value="hipofosfatemia">Hipofosfatemia</option>
+              <option value="hipocalcemia">Hipocalcemia</option>
+              <option value="hipercalcemia">Hipercalcemia</option>
+            </select>
+          </label>
+          <label>Electrolito
+            <select value={solutionForm.electrolyte} onChange={(e) => updateSolution("electrolyte", e.target.value)}>
+              <option value="sodio">Sodio</option>
+              <option value="potasio">Potasio</option>
+              <option value="magnesio">Magnesio</option>
+              <option value="fosforo">Fosforo</option>
+              <option value="calcio">Calcio</option>
+            </select>
+          </label>
+          <label>Via
+            <select value={solutionForm.route} onChange={(e) => updateSolution("route", e.target.value)}>
+              <option value="periferico">Periferica</option>
+              <option value="linea_media">Linea media</option>
+              <option value="picc">PICC</option>
+              <option value="central">Central</option>
+              <option value="oral">Oral/enteral</option>
+            </select>
+          </label>
+          <Num label="Na mEq/L si aplica" value={solutionForm.sodium} onChange={(v) => updateSolution("sodium", v)} />
+          <Num label="Concentracion por mL" value={solutionForm.concentration} onChange={(v) => updateSolution("concentration", v)} />
+          <Num label="Aporte K por mL" value={solutionForm.potassium} onChange={(v) => updateSolution("potassium", v)} />
+          <Num label="Dosis total mg" value={solutionForm.totalDoseMg} onChange={(v) => updateSolution("totalDoseMg", v)} />
+          <Num label="Velocidad mL/h" value={solutionForm.rateMlH} onChange={(v) => updateSolution("rateMlH", v)} />
+        </div>
+        <label>Preparacion<textarea value={solutionForm.preparation} onChange={(e) => updateSolution("preparation", e.target.value)} placeholder="Ej: 40 mL de Katrol + 460 mL de SSN 0.9%" /></label>
+        <label>Uso / advertencia<textarea value={solutionForm.use} onChange={(e) => updateSolution("use", e.target.value)} placeholder="Ej: Solo via central, no pasar por periferica" /></label>
+        <div className="form-actions">
+          <button className="btn secondary" type="button" onClick={addSolution}><Plus size={18} /> Agregar solucion</button>
+          <button className="btn primary" disabled={loading} type="button" onClick={saveSettings}><Save size={18} /> Guardar catalogo</button>
+        </div>
+        <div className="solution-admin-list">
+          {(settings.customSolutions || []).length === 0 && <p>No hay soluciones institucionales creadas.</p>}
+          {(settings.customSolutions || []).map((solution) => (
+            <article className="solution-admin-row" key={solution.id}>
+              <span>
+                <strong>{solution.name}</strong>
+                <small>{solution.disorder} · {routeLabel(solution.route)} · {solution.preparation}</small>
+              </span>
+              <button className="icon-button danger" type="button" onClick={() => removeSolution(solution.id)}><Trash2 size={16} /></button>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -1223,7 +1389,7 @@ function Num({ label, value, onChange }) {
   return <label>{label}<input type="number" step="0.01" value={value || ""} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
-function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated }) {
+function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, settings }) {
   if (!evaluation) return <div className="alert">Aún no hay evaluación generada.</div>;
   const calc = evaluation.calculations || {};
   const classifications = evaluation.classifications || [];
@@ -1300,6 +1466,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
             calculations={calc}
             key={order._id || idx}
             onOrderUpdated={onOrderUpdated}
+            settings={settings}
           />
         ))}
       </section>
@@ -1422,24 +1589,81 @@ const electrolyteSolutionOptions = {
   ]
 };
 
-function ElectrolyteSolutionSelector({ order, calculations, onTextCalculated }) {
-  const disorder = String(order.disorder || "").toLowerCase();
-  if (disorder.includes("natremia")) {
-    return <SodiumSolutionSelector order={order} calculations={calculations} onTextCalculated={onTextCalculated} />;
-  }
-  return <NonSodiumSolutionSelector order={order} onTextCalculated={onTextCalculated} />;
+function routeLabel(route) {
+  return {
+    periferico: "Periferica",
+    linea_media: "Linea media",
+    picc: "PICC",
+    central: "Central",
+    oral: "Oral/enteral",
+    iv: "IV"
+  }[route] || route || "Segun acceso";
 }
 
-function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
+function concentrationText(solution) {
+  const parts = [];
+  if (solution.sodium !== "" && solution.sodium !== undefined) parts.push(`Na ${solution.sodium} mEq/L`);
+  if (solution.concentration !== "" && solution.concentration !== undefined) parts.push(`${solution.concentration}/mL`);
+  if (solution.potassium !== "" && solution.potassium !== undefined) parts.push(`K ${solution.potassium}/mL`);
+  if (solution.totalDoseMg) parts.push(`${solution.totalDoseMg} mg`);
+  return parts.join(" · ") || "Segun preparacion";
+}
+
+function optionalNumber(value) {
+  if (value === "" || value === undefined || value === null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function institutionalOptions(settings = {}, disorder = "", route = "") {
+  const normalizedDisorder = String(disorder || "").toLowerCase();
+  return (settings.customSolutions || [])
+    .filter((solution) => solution?.active !== false && solution?.name)
+    .filter((solution) => {
+      const matchesDisorder = normalizedDisorder.includes(String(solution.disorder || "").toLowerCase());
+      const matchesRoute = !route
+        || !solution.route
+        || solution.route === route
+        || (route === "picc" && solution.route === "central")
+        || (route === "linea_media" && solution.route === "periferico");
+      return matchesDisorder && matchesRoute;
+    })
+    .map((solution) => ({
+      key: solution.id,
+      label: solution.name,
+      route: solution.route,
+      sodium: optionalNumber(solution.sodium),
+      concentration: optionalNumber(solution.concentration),
+      potassium: optionalNumber(solution.potassium),
+      totalDoseMg: optionalNumber(solution.totalDoseMg),
+      hours: optionalNumber(solution.hours) || 24,
+      rateMlH: optionalNumber(solution.rateMlH),
+      preparation: solution.preparation,
+      use: solution.use
+    }));
+}
+
+function ElectrolyteSolutionSelector({ order, calculations, onTextCalculated, settings }) {
+  const disorder = String(order.disorder || "").toLowerCase();
+  if (disorder.includes("natremia")) {
+    return <SodiumSolutionSelector order={order} calculations={calculations} onTextCalculated={onTextCalculated} settings={settings} />;
+  }
+  return <NonSodiumSolutionSelector order={order} onTextCalculated={onTextCalculated} settings={settings} />;
+}
+
+function SodiumSolutionSelector({ order, calculations, onTextCalculated, settings }) {
   const [status, setStatus] = useState("");
   const [preview, setPreview] = useState(null);
   const disorder = String(order.disorder || "").toLowerCase();
   const isSodiumOrder = /natremia/i.test(order.disorder || "");
   const isHypernatremia = disorder.includes("hipernatremia");
-  const compatibleSolutions = sodiumSolutionOptions.filter((solution) => {
+  const compatibleSolutions = [
+    ...sodiumSolutionOptions.filter((solution) => {
     if (isHypernatremia) return ["d5w", "saline045"].includes(solution.key);
     return ["saline09", "saline3", "saline75"].includes(solution.key);
-  });
+    }),
+    ...institutionalOptions(settings, disorder).filter((solution) => Number.isFinite(solution.sodium))
+  ];
   const defaultKey = isHypernatremia ? "d5w" : "saline3";
   const [selectedKey, setSelectedKey] = useState(defaultKey);
   const defaultDailyChange = Number(order.safety?.maxCorrection24h ?? order.safety?.maxDecrease24h ?? 10);
@@ -1557,11 +1781,15 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
   );
 }
 
-function NonSodiumSolutionSelector({ order, onTextCalculated }) {
+function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
   const disorder = String(order.disorder || "").toLowerCase();
   const safety = order.safety || {};
   const potassium = Number(safety.potassium);
   const severity = String(order.severity || "").toLowerCase();
+  const defaultRoute = String(safety.selectedInfusion || "").includes("central") || (Number.isFinite(potassium) && potassium < 2.5)
+    ? "central"
+    : "periferico";
+  const [selectedRoute, setSelectedRoute] = useState(defaultRoute);
 
   let title = "Solucion para reposicion";
   let options = [];
@@ -1569,8 +1797,9 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
   let calculator = null;
 
   if (disorder.includes("hipokalemia")) {
-    const central = (Number.isFinite(potassium) && potassium < 2.5) || String(safety.selectedInfusion || "").includes("central");
-    options = central ? electrolyteSolutionOptions.potassiumCentral : electrolyteSolutionOptions.potassiumPeripheral;
+    const central = ["central", "picc"].includes(selectedRoute);
+    const baseOptions = central ? electrolyteSolutionOptions.potassiumCentral : electrolyteSolutionOptions.potassiumPeripheral;
+    options = [...baseOptions, ...institutionalOptions(settings, disorder, selectedRoute).filter((solution) => Number.isFinite(solution.concentration))];
     defaultRate = central ? (potassium < 2 ? 100 : 50) : (defaultRate || 50);
     calculator = (solution) => {
       const potassiumRate = Math.round(defaultRate * solution.concentration * 10) / 10;
@@ -1579,12 +1808,12 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
         `Solucion escogida: ${solution.label}.`,
         solution.preparation,
         `Pasar a ${defaultRate} mL/h por bomba (${potassiumRate} mEq/h de potasio).`,
-        central ? "Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
+        central ? "Usar solo por via central/PICC; no pasar preparacion central por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
         "Solicitar potasio y magnesio de control segun intervalo indicado y ajustar segun resultado."
       ];
     };
   } else if (disorder.includes("hipomagnesemia")) {
-    options = electrolyteSolutionOptions.magnesium;
+    options = [...electrolyteSolutionOptions.magnesium, ...institutionalOptions(settings, disorder, selectedRoute)];
     calculator = (solution) => {
       const magnesiumRate = Math.round(solution.totalDoseMg / solution.hours);
       return [
@@ -1597,8 +1826,9 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
       ];
     };
   } else if (disorder.includes("hipofosfatemia")) {
-    const central = severity === "severa" || String(safety.selectedInfusion || "").includes("central");
-    options = central ? electrolyteSolutionOptions.phosphorusCentral : electrolyteSolutionOptions.phosphorusPeripheral;
+    const central = ["central", "picc"].includes(selectedRoute) || severity === "severa";
+    const baseOptions = central ? electrolyteSolutionOptions.phosphorusCentral : electrolyteSolutionOptions.phosphorusPeripheral;
+    options = [...baseOptions, ...institutionalOptions(settings, disorder, selectedRoute)];
     defaultRate = defaultRate || (central ? 100 : 50);
     calculator = (solution) => {
       const phosphorusRate = Math.round(defaultRate * solution.concentration * 10) / 10;
@@ -1612,7 +1842,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
       ];
     };
   } else if (disorder.includes("hipocalcemia")) {
-    options = electrolyteSolutionOptions.hypocalcemia;
+    options = [...electrolyteSolutionOptions.hypocalcemia, ...institutionalOptions(settings, disorder, selectedRoute)];
     calculator = (solution) => [
       `Paciente con ${String(order.disorder || "hipocalcemia").toLowerCase()} (Ca ${safety.calcium ?? safety.calciumCorrected ?? safety.calciumTotal ?? "no disponible"} mg/dL).`,
       `Solucion escogida: ${solution.label}.`,
@@ -1620,7 +1850,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
       "Solicitar calcio ionizado o corregido, magnesio, fosforo y creatinina de control."
     ];
   } else if (disorder.includes("hipercalcemia")) {
-    options = electrolyteSolutionOptions.hypercalcemia;
+    options = [...electrolyteSolutionOptions.hypercalcemia, ...institutionalOptions(settings, disorder, selectedRoute)];
     defaultRate = Number(safety.hydrationRate ?? safety.continuousRate ?? 150);
     calculator = (solution) => [
       `Paciente con ${String(order.disorder || "hipercalcemia").toLowerCase()} (Ca ${safety.calcium ?? safety.calciumCorrected ?? safety.calciumTotal ?? "no disponible"} mg/dL).`,
@@ -1633,6 +1863,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
   const [selectedKey, setSelectedKey] = useState(options[0]?.key || "");
   const [status, setStatus] = useState("");
   if (!options.length || !calculator) return null;
+  const selectedValue = options.some((item) => item.key === selectedKey) ? selectedKey : options[0].key;
 
   function generate(value) {
     const solution = options.find((item) => item.key === value) || options[0];
@@ -1641,6 +1872,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
     onTextCalculated(text, {
       recalculated: true,
       solution: solution.label,
+      route: selectedRoute,
       rate: defaultRate || null
     });
     setStatus(`Orden recalculada con ${solution.label}.`);
@@ -1649,22 +1881,31 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
   return (
     <div className="safety-box solution-picker">
       <strong>{title}</strong>
+      <label>Via de reposicion
+        <select value={selectedRoute} onChange={(event) => setSelectedRoute(event.target.value)}>
+          <option value="periferico">Periferica</option>
+          <option value="linea_media">Linea media</option>
+          <option value="picc">PICC</option>
+          <option value="central">Central</option>
+          <option value="oral">Oral/enteral</option>
+        </select>
+      </label>
       <label>Escoger solucion
-        <select value={selectedKey} onChange={(event) => generate(event.target.value)}>
+        <select value={selectedValue} onChange={(event) => generate(event.target.value)}>
           {options.map((solution) => (
             <option key={solution.key} value={solution.key}>{solution.label}</option>
           ))}
         </select>
       </label>
       {status && <small>{status}</small>}
-      <button className="btn secondary" type="button" onClick={() => generate(selectedKey || options[0].key)}>
+      <button className="btn secondary" type="button" onClick={() => generate(selectedValue)}>
         Recalcular y generar orden
       </button>
     </div>
   );
 }
 
-function OrderCard({ order, calculations, onOrderUpdated }) {
+function OrderCard({ order, calculations, onOrderUpdated, settings }) {
   const [text, setText] = useState(order.editedText || order.suggestedText || "");
   const [comment, setComment] = useState(order.comment || "");
   const [copied, setCopied] = useState(false);
@@ -1733,7 +1974,7 @@ function OrderCard({ order, calculations, onOrderUpdated }) {
       <OrderAlerts order={order} />
       <OrderClinicalBrief order={order} />
       <SafetyChecklist order={order} />
-      <ElectrolyteSolutionSelector order={order} calculations={calculations} onTextCalculated={handleCalculatedText} />
+      <ElectrolyteSolutionSelector order={order} calculations={calculations} onTextCalculated={handleCalculatedText} settings={settings} />
       <OrderSafety order={order} />
       <label>Orden médica sugerida editable
         <textarea value={text} onChange={(e) => setText(e.target.value)} />

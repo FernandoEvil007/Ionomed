@@ -1100,6 +1100,31 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   padding: 24px;
 }
 .admin-actions p { margin-top: 0; }
+.solution-admin-list {
+  display: grid;
+  gap: 8px;
+}
+.solution-admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.solution-admin-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.solution-admin-row small {
+  color: var(--subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .solutions-guide {
   display: grid;

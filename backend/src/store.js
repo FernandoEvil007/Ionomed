@@ -134,7 +134,8 @@ export function defaultSettings() {
     maxSodiumCorrection24hStandard: 10,
     maxSodiumCorrection24hHighRisk: 8,
     defaultHypercalcemiaHydrationRate: 150,
-    defaultOverloadHydrationRate: 75
+    defaultOverloadHydrationRate: 75,
+    customSolutions: []
   };
 }
 
