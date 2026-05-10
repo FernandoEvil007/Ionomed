@@ -141,11 +141,16 @@ function App() {
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("login");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [recoveryQuestion, setRecoveryQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
     password: "",
+    newPassword: "",
+    securityQuestion: "",
+    securityAnswer: "",
     documentId: "",
     serviceArea: "",
     professionalRole: "especialista",
@@ -159,8 +164,37 @@ function AuthScreen({ onLogin }) {
   async function submit(e) {
     e.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
     try {
+      if (mode === "recover") {
+        if (!recoveryQuestion) {
+          const data = await api("/auth/recovery-question", {
+            method: "POST",
+            body: JSON.stringify({ email: form.email })
+          });
+          setRecoveryQuestion(data.question);
+          setNotice("Responde la pregunta para crear una contraseña nueva.");
+          return;
+        }
+
+        const data = await api("/auth/reset-password", {
+          method: "POST",
+          body: JSON.stringify({
+            email: form.email,
+            securityAnswer: form.securityAnswer,
+            newPassword: form.newPassword
+          })
+        });
+        setNotice(data.message || "Contraseña actualizada. Ya puedes ingresar.");
+        update("password", "");
+        update("newPassword", "");
+        update("securityAnswer", "");
+        setRecoveryQuestion("");
+        setMode("login");
+        return;
+      }
+
       const path = mode === "login" ? "/auth/login" : "/auth/register";
       const payload = mode === "login" ? { email: form.email, password: form.password } : form;
       const data = await api(path, { method: "POST", body: JSON.stringify(payload) });
@@ -171,6 +205,19 @@ function AuthScreen({ onLogin }) {
       setLoading(false);
     }
   }
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError("");
+    setNotice("");
+    setRecoveryQuestion("");
+  };
+  const authTitle = mode === "login" ? "Ingresar" : mode === "register" ? "Registro médico" : "Recuperar contraseña";
+  const authSubtitle = mode === "login"
+    ? "Accede a tu institución."
+    : mode === "register"
+      ? "Todo usuario debe especificar su rol profesional antes de usar la aplicación."
+      : "Usa tu pregunta de seguridad para crear una contraseña nueva.";
 
   return (
     <main className="auth-page app-shell">
@@ -190,10 +237,11 @@ function AuthScreen({ onLogin }) {
         </div>
         <form className="auth-panel grid" onSubmit={submit}>
           <div>
-            <h2>{mode === "login" ? "Ingresar" : "Registro médico"}</h2>
-            <p>{mode === "login" ? "Accede a tu institución." : "Todo usuario debe especificar su rol profesional antes de usar la aplicación."}</p>
+            <h2>{authTitle}</h2>
+            <p>{authSubtitle}</p>
           </div>
           {error && <div className="error">{error}</div>}
+          {notice && <div className="success">{notice}</div>}
           {mode === "register" && (
             <>
               <label>Nombre completo<input value={form.fullName} onChange={(e) => update("fullName", e.target.value)} required /></label>
@@ -210,14 +258,33 @@ function AuthScreen({ onLogin }) {
                 <label>Institución<input value={form.institutionName} onChange={(e) => update("institutionName", e.target.value)} required /></label>
                 <label>Ciudad<input value={form.institutionCity} onChange={(e) => update("institutionCity", e.target.value)} /></label>
               </div>
+              <label>Pregunta de recuperación<input value={form.securityQuestion} onChange={(e) => update("securityQuestion", e.target.value)} placeholder="Ej. ¿Cuál fue tu primer hospital?" required minLength={6} /></label>
+              <label>Respuesta de seguridad<input value={form.securityAnswer} onChange={(e) => update("securityAnswer", e.target.value)} required minLength={2} /></label>
             </>
           )}
           <label>Correo electrónico<input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required /></label>
-          <label>Contraseña<input type="password" value={form.password} onChange={(e) => update("password", e.target.value)} required minLength={6} /></label>
-          <button className="btn primary full" disabled={loading}>{loading ? "Procesando..." : mode === "login" ? "Ingresar" : "Crear cuenta"}</button>
-          <button type="button" className="btn ghost full" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}>
-            {mode === "login" ? "Crear cuenta nueva" : "Ya tengo cuenta"}
-          </button>
+          {mode === "recover" ? (
+            <>
+              {recoveryQuestion && (
+                <>
+                  <div className="security-question"><strong>Pregunta:</strong><span>{recoveryQuestion}</span></div>
+                  <label>Respuesta<input value={form.securityAnswer} onChange={(e) => update("securityAnswer", e.target.value)} required minLength={2} /></label>
+                  <label>Nueva contraseña<input type="password" value={form.newPassword} onChange={(e) => update("newPassword", e.target.value)} required minLength={6} /></label>
+                </>
+              )}
+              <button className="btn primary full" disabled={loading}>{loading ? "Procesando..." : recoveryQuestion ? "Actualizar contraseña" : "Ver pregunta"}</button>
+              <button type="button" className="btn ghost full" onClick={() => switchMode("login")}>Volver al ingreso</button>
+            </>
+          ) : (
+            <>
+              <label>Contraseña<input type="password" value={form.password} onChange={(e) => update("password", e.target.value)} required minLength={6} /></label>
+              <button className="btn primary full" disabled={loading}>{loading ? "Procesando..." : mode === "login" ? "Ingresar" : "Crear cuenta"}</button>
+              {mode === "login" && <button type="button" className="btn ghost full" onClick={() => switchMode("recover")}>Olvidé mi contraseña</button>}
+              <button type="button" className="btn ghost full" onClick={() => switchMode(mode === "login" ? "register" : "login")}>
+                {mode === "login" ? "Crear cuenta nueva" : "Ya tengo cuenta"}
+              </button>
+            </>
+          )}
         </form>
       </section>
     </main>
@@ -1222,7 +1289,7 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
   const defaultKey = isHypernatremia ? "d5w" : "saline3";
   const [selectedKey, setSelectedKey] = useState(defaultKey);
   const defaultDailyChange = Number(order.safety?.maxCorrection24h ?? order.safety?.maxDecrease24h ?? 10);
-  const [dailyChange, setDailyChange] = useState(defaultDailyChange);
+  const [dailyChange, setDailyChange] = useState(Math.min(defaultDailyChange || 8, 8));
   const safety = order.safety || {};
   const textSource = `${order.editedText || ""} ${order.suggestedText || ""}`;
   const sodiumFromText = textSource.match(/(?:Na|sodio)\s*(?:serico\s*)?(\d+(?:\.\d+)?)/i)?.[1];
@@ -1234,14 +1301,16 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
   function calculateModel(value) {
     const solution = compatibleSolutions.find((item) => item.key === value);
     if (!solution || !canCalculate) return null;
-    const max12h = Number(safety.maxCorrection12h ?? safety.maxDecrease12h ?? 6);
-    const max24h = Number(safety.maxCorrection24h ?? safety.maxDecrease24h ?? 10);
+    const max4h = Number(safety.maxCorrection4h ?? safety.maxDecrease4h ?? 1.5);
+    const max8h = Number(safety.maxCorrection8h ?? safety.maxDecrease8h ?? 3);
+    const max12h = Number(safety.maxCorrection12h ?? safety.maxDecrease12h ?? 5);
+    const max24h = Number(safety.maxCorrection24h ?? safety.maxDecrease24h ?? 8);
     const desired24h = Math.min(Math.max(Number(dailyChange) || max24h, 0.5), max24h);
     const changePerLiter = Math.round(((solution.sodium - sodium) / (totalBodyWater + 1)) * 100) / 100;
     const absoluteChange = Math.abs(changePerLiter);
     const volume12h = absoluteChange > 0 ? Math.round((max12h / absoluteChange) * 1000) : null;
     const volume24h = absoluteChange > 0 ? Math.round((desired24h / absoluteChange) * 1000) : null;
-    const maxRate = absoluteChange > 0 ? Math.round((Math.min(max12h / 12, desired24h / 24) / absoluteChange) * 1000) : null;
+    const maxRate = absoluteChange > 0 ? Math.round((Math.min(max4h / 4, max8h / 8, max12h / 12, desired24h / 24) / absoluteChange) * 1000) : null;
     const direction = changePerLiter >= 0 ? "aumento" : "descenso";
     const slowSaline09Hyponatremia = !isHypernatremia && solution.key === "saline09";
     const volume72h = slowSaline09Hyponatremia && absoluteChange > 0 ? Math.round((desired24h / absoluteChange) * 1000) : null;
@@ -1255,7 +1324,7 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
         `Cambio objetivo elegido: ${desired24h} mEq/L.`,
         `Volumen calculado para ese cambio: ${volume72h ?? "no calculable"} cc, administrado en 72 horas para correccion lenta.`,
         `Velocidad sugerida: ${rate72h ?? "no calculable"} mL/h por bomba.`,
-        `No superar ${max12h} mEq/L en 12 horas ni ${max24h} mEq/L en 24 horas; ajustar segun sodio real.`,
+        `No superar ${max4h} mEq/L en 4 horas, ${max8h} mEq/L en 8 horas, ${max12h} mEq/L en 12 horas ni ${max24h} mEq/L en 24 horas; ajustar segun sodio real.`,
         "Solicitar sodio de control cada 6 horas durante fase activa y ajustar segun resultado real."
       ].map((line, index) => `${index + 1}. ${line}`).join("\n");
       return { solution, changePerLiter, absoluteChange, volume12h: null, volume24h: null, volume72h, maxRate: rate72h, direction, desired24h, text };
@@ -1268,7 +1337,7 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
       `Cambio objetivo elegido: ${desired24h} mEq/L en 24 horas.`,
       `Volumen calculado: ${volume12h ?? "no calculable"} cc como limite de 12 horas y ${volume24h ?? "no calculable"} cc para el objetivo de 24 horas.`,
       `Velocidad maxima sugerida: ${maxRate ?? "no calculable"} mL/h por bomba.`,
-      `No superar ${max12h} mEq/L en 12 horas ni ${max24h} mEq/L en 24 horas.`,
+      `No superar ${max4h} mEq/L en 4 horas, ${max8h} mEq/L en 8 horas, ${max12h} mEq/L en 12 horas ni ${max24h} mEq/L en 24 horas.`,
       "Solicitar sodio de control cada 6 horas durante fase activa y ajustar segun resultado real."
     ].map((line, index) => `${index + 1}. ${line}`).join("\n");
     return { solution, changePerLiter, absoluteChange, volume12h, volume24h, maxRate, direction, desired24h, text };
@@ -1596,7 +1665,7 @@ function SafetyChecklist({ order }) {
   const missing = order.missingData || [];
   const checks = [
     ["Datos faltantes", missing.length ? missing.join(", ") : "Completo para seguridad básica", missing.length ? "warn" : "ok"],
-    ["Límites máximos", safety.maxCorrection24h || safety.maxDecrease24h ? `24 h: ${safety.maxCorrection24h ?? safety.maxDecrease24h}; 12 h: ${safety.maxCorrection12h ?? safety.maxDecrease12h}` : "No aplica", "ok"],
+    ["Límites máximos", safety.maxCorrection24h || safety.maxDecrease24h ? `24 h: ${safety.maxCorrection24h ?? safety.maxDecrease24h}; 12 h: ${safety.maxCorrection12h ?? safety.maxDecrease12h}; 8 h: ${safety.maxCorrection8h ?? safety.maxDecrease8h ?? 3}; 4 h: ${safety.maxCorrection4h ?? safety.maxDecrease4h ?? 1.5}` : "No aplica", "ok"],
     ["Vía requerida", safety.selectedInfusion || safety.continuousFluid || "Confirmar según solución", safety.selectedInfusion || safety.continuousFluid ? "ok" : "warn"],
     ["ECG", safety.requiresEcg ? "Requerido" : "Según criterio clínico", safety.requiresEcg ? "warn" : "ok"],
     ["Monitorización", safety.requiresCardiacMonitoring ? "Cardiaca continua" : "Según evolución", safety.requiresCardiacMonitoring ? "warn" : "ok"],
@@ -1630,8 +1699,12 @@ function OrderSafety({ order }) {
     ["sodiumMeasured", "Sodio medido", "mmol/L"],
     ["sodiumCorrected", "Sodio corregido", "mmol/L"],
     ["maxCorrection12h", "Max correccion 12 h", "mmol/L"],
+    ["maxCorrection8h", "Max correccion 8 h", "mmol/L"],
+    ["maxCorrection4h", "Max correccion 4 h", "mmol/L"],
     ["maxCorrection24h", "Max 24 h", "mmol/L"],
     ["maxDecrease12h", "Descenso max 12 h", "mmol/L"],
+    ["maxDecrease8h", "Descenso max 8 h", "mmol/L"],
+    ["maxDecrease4h", "Descenso max 4 h", "mmol/L"],
     ["maxDecrease24h", "Descenso max 24 h", "mmol/L"],
     ["target12h", "Meta Na 12 h", "mmol/L"],
     ["target24h", "Meta Na 24 h", "mmol/L"],

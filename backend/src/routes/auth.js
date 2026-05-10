@@ -8,7 +8,8 @@ import {
   createUser,
   findInstitutionById,
   findInstitutionByName,
-  findUserByEmail
+  findUserByEmail,
+  updateUserPassword
 } from "../store.js";
 
 export const PROFESSIONAL_ROLES = [
@@ -31,7 +32,19 @@ const registerSchema = z.object({
   professionalRole: z.enum(PROFESSIONAL_ROLES),
   institutionName: z.string().min(2),
   institutionIdentifier: z.string().optional(),
-  institutionCity: z.string().optional()
+  institutionCity: z.string().optional(),
+  securityQuestion: z.string().min(6),
+  securityAnswer: z.string().min(2)
+});
+
+const recoveryQuestionSchema = z.object({
+  email: z.string().email()
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  securityAnswer: z.string().min(2),
+  newPassword: z.string().min(6)
 });
 
 function signToken(user) {
@@ -40,6 +53,10 @@ function signToken(user) {
     process.env.JWT_SECRET,
     { expiresIn: "8h" }
   );
+}
+
+function normalizeSecurityAnswer(answer) {
+  return String(answer ?? "").trim().toLowerCase();
 }
 
 router.post("/register", async (req, res, next) => {
@@ -59,6 +76,7 @@ router.post("/register", async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(data.password, 12);
+    const securityAnswerHash = await bcrypt.hash(normalizeSecurityAnswer(data.securityAnswer), 12);
     const user = await createUser({
       institutionId: institution.id,
       fullName: data.fullName,
@@ -68,6 +86,8 @@ router.post("/register", async (req, res, next) => {
       professionalRole: data.professionalRole,
       accessRole: isFirstInstitutionUser ? "admin" : "clinico",
       passwordHash,
+      securityQuestion: data.securityQuestion,
+      securityAnswerHash,
       acceptedClinicalTerms: true
     });
 
@@ -89,6 +109,40 @@ router.post("/login", async (req, res, next) => {
 
     const institution = await findInstitutionById(user.institutionId);
     res.json({ token: signToken(user), user: sanitizeUser(user), institution });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/recovery-question", async (req, res, next) => {
+  try {
+    const { email } = recoveryQuestionSchema.parse(req.body);
+    const user = await findUserByEmail(email);
+    if (!user || !user.securityQuestion || !user.securityAnswerHash) {
+      return res.status(404).json({ message: "Este usuario no tiene pregunta de recuperacion configurada" });
+    }
+
+    res.json({ question: user.securityQuestion });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/reset-password", async (req, res, next) => {
+  try {
+    const data = resetPasswordSchema.parse(req.body);
+    const user = await findUserByEmail(data.email);
+    if (!user || !user.securityAnswerHash) {
+      return res.status(404).json({ message: "Este usuario no tiene pregunta de recuperacion configurada" });
+    }
+    if (!user.isActive) return res.status(403).json({ message: "Usuario inactivo" });
+
+    const ok = await bcrypt.compare(normalizeSecurityAnswer(data.securityAnswer), user.securityAnswerHash);
+    if (!ok) return res.status(401).json({ message: "Respuesta de seguridad incorrecta" });
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    await updateUserPassword(user.id, passwordHash);
+    res.json({ ok: true, message: "Contrasena actualizada correctamente" });
   } catch (error) {
     next(error);
   }

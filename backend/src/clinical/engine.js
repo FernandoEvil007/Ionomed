@@ -62,13 +62,17 @@ function sodiumMissingData(patient, lab) {
   return missing;
 }
 
-function sodiumCorrectionLimits(dailyLimit = 10) {
-  const max24h = Math.min(Number(dailyLimit) || 10, 10);
-  const max12h = 6;
+function sodiumCorrectionLimits(dailyLimit = 8) {
+  const max24h = Math.min(Number(dailyLimit) || 8, 8);
+  const max12h = 5;
+  const max8h = 3;
+  const max4h = 1.5;
   return {
     max24h,
     max12h,
-    maxHourly: Math.min(max24h / 24, max12h / 12)
+    max8h,
+    max4h,
+    maxHourly: Math.min(max24h / 24, max12h / 12, max8h / 8, max4h / 4)
   };
 }
 
@@ -126,14 +130,18 @@ function waterNeededForSodiumTarget(currentSodium, targetSodium, totalBodyWater)
 }
 
 function hypernatremiaRatePlan(sodium, totalBodyWater) {
-  const limits = sodiumCorrectionLimits(10);
+  const limits = sodiumCorrectionLimits(8);
   if (!sodium || !totalBodyWater || Number(sodium) <= 145) {
     return {
       rateMlH: null,
       target24h: null,
       target12h: null,
       water24hLiters: null,
-      water12hLiters: null
+      water12hLiters: null,
+      maxDecrease24h: limits.max24h,
+      maxDecrease12h: limits.max12h,
+      maxDecrease8h: limits.max8h,
+      maxDecrease4h: limits.max4h
     };
   }
   const target24h = Math.max(145, Number(sodium) - limits.max24h);
@@ -148,7 +156,11 @@ function hypernatremiaRatePlan(sodium, totalBodyWater) {
     target24h,
     target12h,
     water24hLiters,
-    water12hLiters
+    water12hLiters,
+    maxDecrease24h: limits.max24h,
+    maxDecrease12h: limits.max12h,
+    maxDecrease8h: limits.max8h,
+    maxDecrease4h: limits.max4h
   };
 }
 
@@ -250,8 +262,8 @@ function hypernatremiaFluidPlan(patient, sodium, totalBodyWater, freeWaterDefici
   const solutionVolume12hMl = solutionVolumeForFreeWater(ratePlan.water12hLiters, sodium, bestSolution);
   const solutionVolume24hMl = solutionVolumeForFreeWater(ratePlan.water24hLiters, sodium, bestSolution);
   const rateText = ratePlan.rateMlH
-    ? `Tasa maxima inicial sugerida de agua libre: ${ratePlan.rateMlH} mL/h por la via elegida, calculada para no superar descenso de 10 mmol/L en 24 horas ni 6 mmol/L en 12 horas. Con ${bestSolution.name}, volumen aproximado: ${solutionVolume12hMl ?? "no calculable"} cc en 12 horas y ${solutionVolume24hMl ?? "no calculable"} cc en 24 horas. Meta aproximada: Na ${ratePlan.target24h} mmol/L a 24 horas y Na ${ratePlan.target12h} mmol/L a 12 horas, ajustando segun control real.`
-    : "Si no hay peso/ACT o los datos son incompletos, calcular manualmente la tasa inicial y ajustar con sodio seriado; no superar descenso de 10 mmol/L en 24 horas ni 6 mmol/L en 12 horas.";
+    ? `Tasa maxima inicial sugerida de agua libre: ${ratePlan.rateMlH} mL/h por la via elegida, calculada para no superar descenso de ${ratePlan.maxDecrease24h} mmol/L en 24 horas, ${ratePlan.maxDecrease12h} mmol/L en 12 horas, ${ratePlan.maxDecrease8h} mmol/L en 8 horas ni ${ratePlan.maxDecrease4h} mmol/L en 4 horas. Con ${bestSolution.name}, volumen aproximado: ${solutionVolume12hMl ?? "no calculable"} cc en 12 horas y ${solutionVolume24hMl ?? "no calculable"} cc en 24 horas. Meta aproximada: Na ${ratePlan.target24h} mmol/L a 24 horas y Na ${ratePlan.target12h} mmol/L a 12 horas, ajustando segun control real.`
+    : "Si no hay peso/ACT o los datos son incompletos, calcular manualmente la tasa inicial y ajustar con sodio seriado; no superar cambio de 8 mmol/L en 24 horas, 5 mmol/L en 12 horas, 3 mmol/L en 8 horas ni 1.5 mmol/L en 4 horas.";
   return {
     continuousFluid: initialFluid,
     continuousRate: ratePlan.rateMlH,
@@ -261,14 +273,16 @@ function hypernatremiaFluidPlan(patient, sodium, totalBodyWater, freeWaterDefici
     selectedSolutionVolumeMl,
     solutionVolume12hMl,
     solutionVolume24hMl,
-    maxDecrease24h: 10,
-    maxDecrease12h: 6,
+    maxDecrease24h: ratePlan.maxDecrease24h,
+    maxDecrease12h: ratePlan.maxDecrease12h,
+    maxDecrease8h: ratePlan.maxDecrease8h,
+    maxDecrease4h: ratePlan.maxDecrease4h,
     target24h: ratePlan.target24h,
     target12h: ratePlan.target12h,
     water24hLiters: ratePlan.water24hLiters,
     water12hLiters: ratePlan.water12hLiters,
     text: `Deficit estimado de agua libre hasta Na 140: ${freeWaterDeficit ?? "no calculable"} L. Mejor solucion sugerida: ${bestSolution.name}; ${bestSolution.note}. Volumen total aproximado para corregir deficit hasta Na 140: ${selectedSolutionVolumeMl ?? "no calculable"} cc. ${rateText} Elegir via de reposicion segun estado neurologico, tolerancia enteral, volemia, glicemia y funcion renal. Si hay choque o hipovolemia marcada, estabilizar perfusion inicialmente con solucion salina 0.9% y luego pasar a reposicion de agua libre/solucion 0.45%.`,
-    controls: ["Sodio cada 4 a 6 horas durante fase activa", "Balance hidrico y diuresis", "Ajustar tasa segun descenso real", "No superar descenso de 6 mmol/L en 12 horas ni 10 mmol/L en 24 horas"]
+    controls: ["Sodio cada 4 a 6 horas durante fase activa", "Balance hidrico y diuresis", "Ajustar tasa segun descenso real", "No superar cambio de 1.5 mmol/L en 4 horas, 3 mmol/L en 8 horas, 5 mmol/L en 12 horas ni 8 mmol/L en 24 horas"]
   };
 }
 
@@ -519,7 +533,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
   const alerts = [];
   const sodium = calculations.sodiumCorrected || lab.sodium;
   const highRisk = sodiumHighRisk(patient);
-  const dailyLimit = highRisk ? 8 : 10;
+  const dailyLimit = 8;
   const correctionLimits = sodiumCorrectionLimits(dailyLimit);
   const missingData = sodiumMissingData(patient, lab);
   const safety = {
@@ -528,6 +542,8 @@ function sodiumOrder(patient, lab, calculations, classification) {
     totalBodyWater: calculations.totalBodyWater,
     maxCorrection24h: correctionLimits.max24h,
     maxCorrection12h: correctionLimits.max12h,
+    maxCorrection8h: correctionLimits.max8h,
+    maxCorrection4h: correctionLimits.max4h,
     highRiskOds: highRisk,
     targetInitialRise: classification.disorder === "Hiponatremia severa sintomatica" ? "4 a 6 mmol/L o mejoria neurologica" : "correccion gradual segun etiologia",
     estimated3PercentChangePerLiter: calculations.sodium3ChangePerLiter,
@@ -537,7 +553,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
   if (calculations.sodiumCorrected && lab.sodium && Math.abs(calculations.sodiumCorrected - Number(lab.sodium)) >= 3) {
     alerts.push(`Sodio corregido por glucosa: ${calculations.sodiumCorrected} mmol/L.`);
   }
-  alerts.push(`Limite de correccion de sodio: no superar ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas.`);
+  alerts.push(`Limite de recambio de sodio: no superar ${correctionLimits.max4h} mmol/L en 4 horas, ${correctionLimits.max8h} mmol/L en 8 horas, ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas.`);
   if (highRisk) alerts.push(`Alto riesgo de desmielinizacion osmotica: usar limite mas conservador de ${correctionLimits.max24h} mmol/L en 24 horas.`);
   if (missingData.length) alerts.push(`Datos faltantes para mayor precision: ${missingData.join(", ")}.`);
 
@@ -589,7 +605,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
   return makeOrder({
     ...classification,
     alerts: [...alerts, "Corregir hipernatremia de forma gradual y segun tiempo de evolucion."],
-    safety: { ...safety, freeWaterDeficitLiters: freeWaterDeficit, maxDecrease24h: 10, maxDecrease12h: 6, ...infusionSafety(hypernatremiaPlan) },
+    safety: { ...safety, freeWaterDeficitLiters: freeWaterDeficit, maxDecrease24h: 8, maxDecrease12h: 5, maxDecrease8h: 3, maxDecrease4h: 1.5, ...infusionSafety(hypernatremiaPlan) },
     missingData,
     controls: ["Sodio de control cada 6 horas durante correccion de agua libre", ...hypernatremiaPlan.controls],
     text: `Paciente con ${classification.disorder.toLowerCase()}. ${hypernatremiaPlan.text} Solicitar sodio de control cada 6 horas durante correccion de agua libre.`,

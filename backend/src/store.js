@@ -163,6 +163,8 @@ export async function initStore() {
       accessRole TEXT DEFAULT 'clinico',
       professionalRole TEXT NOT NULL,
       passwordHash TEXT NOT NULL,
+      securityQuestion TEXT,
+      securityAnswerHash TEXT,
       acceptedClinicalTerms INTEGER DEFAULT 1,
       isActive INTEGER DEFAULT 1,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -263,6 +265,7 @@ export async function initStore() {
   `);
   await ensurePatientOptionalFields();
   await ensureOrderClinicalColumns();
+  await ensureUserRecoveryColumns();
 }
 
 async function ensurePatientOptionalFields() {
@@ -334,6 +337,12 @@ async function ensureOrderClinicalColumns() {
   if (!columns.has("controls")) await run("ALTER TABLE orders ADD COLUMN controls TEXT DEFAULT '[]'");
 }
 
+async function ensureUserRecoveryColumns() {
+  const columns = new Set((await all("PRAGMA table_info(users)")).map((column) => column.name));
+  if (!columns.has("securityQuestion")) await run("ALTER TABLE users ADD COLUMN securityQuestion TEXT");
+  if (!columns.has("securityAnswerHash")) await run("ALTER TABLE users ADD COLUMN securityAnswerHash TEXT");
+}
+
 export async function findInstitutionByName(name) {
   return normalizeInstitution(await get("SELECT * FROM institutions WHERE name = ?", [text(name)]));
 }
@@ -362,8 +371,9 @@ export async function createUser(data) {
   const result = await run(
     `INSERT INTO users (
       institutionId, fullName, email, documentId, serviceArea, accessRole,
-      professionalRole, passwordHash, acceptedClinicalTerms, isActive
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      professionalRole, passwordHash, securityQuestion, securityAnswerHash,
+      acceptedClinicalTerms, isActive
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.institutionId,
       text(data.fullName),
@@ -373,11 +383,18 @@ export async function createUser(data) {
       data.accessRole || "clinico",
       data.professionalRole,
       data.passwordHash,
+      text(data.securityQuestion),
+      data.securityAnswerHash || null,
       bool(data.acceptedClinicalTerms ?? true),
       bool(data.isActive ?? true)
     ]
   );
   return findUserById(result.id);
+}
+
+export async function updateUserPassword(userId, passwordHash) {
+  await run("UPDATE users SET passwordHash = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?", [passwordHash, userId]);
+  return findUserById(userId);
 }
 
 export async function listPatients(institutionId) {
