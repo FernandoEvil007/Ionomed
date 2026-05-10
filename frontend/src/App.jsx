@@ -849,12 +849,44 @@ const solutionGroups = [
     title: "Reposicion de potasio",
     rows: [
       {
+        name: "KCl periferico 0.02 mEq/mL",
+        match: ["hipokalemia"],
+        route: "Periferico",
+        preparation: "KCl en DAD 5% x 500 mL",
+        content: "0.02 mEq/mL",
+        use: "Reposicion periferica lenta; calcular velocidad final en mEq/h y vigilar tolerancia venosa."
+      },
+      {
+        name: "KCl periferico 0.04 mEq/mL",
+        match: ["hipokalemia"],
+        route: "Periferico",
+        preparation: "KCl en solucion salina 0.9% x 250 o 500 mL",
+        content: "0.04 mEq/mL",
+        use: "Opcion periferica si se quiere evitar carga de dextrosa; no superar limite periferico institucional."
+      },
+      {
         name: "Cloruro de potasio periferico",
         match: ["hipokalemia"],
         route: "Periferico",
         preparation: "25 mL de Katrol + 475 cc de solucion salina 0.9%",
         content: "Aproximado 0.1 mEq/mL si Katrol aporta 2 mEq/mL",
         use: "Usar por via periferica con bomba. No superar 8 mEq/h por via periferica."
+      },
+      {
+        name: "KCl central 0.2 mEq/mL en agua destilada",
+        match: ["hipokalemia"],
+        route: "Central",
+        preparation: "KCl 0.2 mEq/mL x 100 mL en agua destilada",
+        content: "0.2 mEq/mL",
+        use: "Via central; requiere bomba y monitorizacion segun severidad/protocolo."
+      },
+      {
+        name: "KCl central 0.2 mEq/mL en SSN",
+        match: ["hipokalemia"],
+        route: "Central",
+        preparation: "KCl 0.2 mEq/mL x 100 mL en solucion salina 0.9%",
+        content: "0.2 mEq/mL",
+        use: "Via central; alternativa en SSN 0.9%, no pasar por periferica."
       },
       {
         name: "Cloruro de potasio central",
@@ -904,20 +936,81 @@ const solutionGroups = [
     title: "Disnatremias",
     rows: [
       {
-        name: "Hiponatremia",
+        name: "Solucion salina 3%",
         match: ["hiponatremia"],
         route: "Segun acceso",
-        preparation: "SSN 3%: 400 cc de SSN 0.9% + 10 ampollas de Natrol. SSN 0.9% si hipovolemia.",
-        content: "Elegir segun severidad, volemia y protocolo",
-        use: "3% o 7.5% para correccion activa; SSN 0.9% si hipovolemia."
+        preparation: "SSN 3%: 400 cc de SSN 0.9% + 10 ampollas de Natrol.",
+        content: "Na 513 mEq/L",
+        use: "Correccion activa de hiponatremia segun calculo, limite de correccion y monitorizacion."
       },
       {
-        name: "Hipernatremia",
+        name: "Solucion salina 7.5%",
+        match: ["hiponatremia"],
+        route: "Central / protocolo",
+        preparation: "Solucion hipertonica 7.5% segun disponibilidad y protocolo institucional.",
+        content: "Na 1283 mEq/L",
+        use: "Correccion activa cuando el protocolo institucional la permite; requiere vigilancia estrecha."
+      },
+      {
+        name: "Solucion salina 0.9%",
+        match: ["hiponatremia", "hipercalcemia"],
+        route: "IV",
+        preparation: "Solucion salina 0.9% lista para infusion.",
+        content: "Na 154 mEq/L",
+        use: "Hiponatremia hipovolemica o hidratacion en hipercalcemia si el estado clinico lo permite."
+      },
+      {
+        name: "Solucion salina 0.45%",
         match: ["hipernatremia"],
-        route: "IV / enteral / oral",
-        preparation: "SSN 0.45%: 2 ampollas de Natrol + 480 cc de agua destilada. Alternativas: DAD 5%, agua libre enteral/oral.",
-        content: "Reposicion de agua libre",
-        use: "Ajustar tasa para evitar descenso rapido de sodio."
+        route: "IV",
+        preparation: "SSN 0.45%: 2 ampollas de Natrol + 480 cc de agua destilada.",
+        content: "Na 77 mEq/L",
+        use: "Reposicion de agua libre con electrolito; ajustar tasa para evitar descenso rapido de sodio."
+      },
+      {
+        name: "Dextrosa al 5%",
+        match: ["hipernatremia"],
+        route: "IV",
+        preparation: "DAD 5% lista para infusion.",
+        content: "Agua libre IV; Na 0 mEq/L",
+        use: "Reposicion de agua libre cuando no hay via enteral/oral segura; vigilar glucemia."
+      },
+      {
+        name: "Agua libre oral/enteral",
+        match: ["hipernatremia"],
+        route: "Oral / enteral",
+        preparation: "Agua libre por via oral o sonda enteral si es seguro.",
+        content: "Agua libre; Na 0 mEq/L",
+        use: "Preferir si el paciente esta alerta y tolera via enteral/oral."
+      },
+      {
+        name: "Ringer lactato",
+        match: ["hipernatremia"],
+        route: "IV",
+        preparation: "Ringer lactato listo para infusion.",
+        content: "Na 130 mEq/L",
+        use: "Cristaloide balanceado; confirmar indicacion, volemia y compatibilidad con la estrategia de sodio."
+      }
+    ]
+  },
+  {
+    title: "Calcio e hipercalcemia",
+    rows: [
+      {
+        name: "Gluconato de calcio 10%",
+        match: ["hipocalcemia"],
+        route: "IV lento",
+        preparation: "Gluconato de calcio al 10% IV lento.",
+        content: "Presentacion al 10%",
+        use: "Usar si hay sintomas importantes, QT prolongado o hipocalcemia severa; monitorizar ECG segun riesgo."
+      },
+      {
+        name: "Solucion salina 0.9% para hipercalcemia",
+        match: ["hipercalcemia"],
+        route: "IV",
+        preparation: "Solucion salina 0.9% lista para infusion.",
+        content: "Cristaloide isotónico",
+        use: "Hidratacion en hipercalcemia si no hay sobrecarga, anuria o falla renal avanzada."
       }
     ]
   }
