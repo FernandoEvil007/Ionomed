@@ -383,6 +383,7 @@ function potassiumFluidPlan(patient, classification, safety) {
     const maxInfusionRateMlH = Math.min(maxRateByPotassiumMlH, routeLimitedRateMlH);
     const infusionRateMlH = Math.min(maxInfusionRateMlH, central ? (classification.severity === "severa" ? 100 : 50) : routeLimitedRateMlH);
     const potassiumRateMeqH = Math.round(infusionRateMlH * concentrationMeqMl * 10) / 10;
+    const maxPotassiumRateBySelectedRouteMeqH = Math.round(maxInfusionRateMlH * concentrationMeqMl * 10) / 10;
     const totalReplacementMeq = safety.potassiumTotalReplacementMeq;
     const estimatedInfusionHours = totalReplacementMeq && potassiumRateMeqH
       ? Math.round((totalReplacementMeq / potassiumRateMeqH) * 10) / 10
@@ -400,6 +401,9 @@ function potassiumFluidPlan(patient, classification, safety) {
       continuousRate: infusionRateMlH,
       selectedInfusion: `${potassiumInfusionType}: ${selectedInfusion}`,
       potassiumRateMeqH,
+      potassiumConcentrationMeqMl: concentrationMeqMl,
+      maxPotassiumRateMeqH,
+      maxPotassiumRateBySelectedRouteMeqH,
       potassiumBasalMeq: safety.potassiumBasalMeq,
       potassiumDeficitMeq: safety.potassiumDeficitMeq,
       potassiumTotalReplacementMeq: totalReplacementMeq,
@@ -408,7 +412,7 @@ function potassiumFluidPlan(patient, classification, safety) {
       infusionRateMlH,
       maxInfusionRateMlH,
       availableInfusions,
-      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${replacementText}${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba${estimatedInfusionHours ? `; duracion estimada ${estimatedInfusionHours} horas para la dosis total calculada` : ""}. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
+      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${replacementText}${preparationText} Concentracion final calculada: ${concentrationMeqMl} mEq/mL. Pasar a ${infusionRateMlH} mL/h por bomba: ${infusionRateMlH} mL/h x ${concentrationMeqMl} mEq/mL = ${potassiumRateMeqH} mEq/h de potasio. Para esta via y concentracion, velocidad maxima calculada: ${maxInfusionRateMlH} mL/h, equivalente a ${maxPotassiumRateBySelectedRouteMeqH} mEq/h; limite absoluto ${maxPotassiumRateMeqH} mEq/h. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. ${estimatedInfusionHours ? `Duracion estimada ${estimatedInfusionHours} horas para la dosis total calculada. ` : ""}Ajustar o suspender al recibir control de potasio.`,
       controls: [
         ...(centralRequired && !safety.centralAccess ? ["K menor de 2 mmol/L: cateter venoso central mandatorio antes de iniciar KCl central"] : []),
         ...(centralPreferred && !centralRequired && !safety.centralAccess ? ["K menor de 2.5 mmol/L: preferir via central; si no esta disponible, confirmar riesgo/beneficio antes de usar via periferica"] : []),

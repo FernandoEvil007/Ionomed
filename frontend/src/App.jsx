@@ -2235,6 +2235,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
       const targetRate = central ? (severity === "severa" ? 100 : 50) : (defaultRate || routeRateLimit);
       const safeRate = Math.min(routeRateLimit, maxRateByConcentration, targetRate);
       const potassiumRate = Math.round(safeRate * solution.concentration * 10) / 10;
+      const maxMeqByRoute = Math.round(Math.min(routeRateLimit, maxRateByConcentration) * solution.concentration * 10) / 10;
       const totalReplacement = safety.potassiumTotalReplacementMeq;
       const durationHours = totalReplacement && potassiumRate ? Math.round((totalReplacement / potassiumRate) * 10) / 10 : null;
       const replacementText = totalReplacement
@@ -2245,7 +2246,9 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
         replacementText,
         `Solucion escogida: ${solution.label}.`,
         solution.preparation,
-        `Pasar a ${safeRate} mL/h por bomba (${potassiumRate} mEq/h de potasio)${durationHours ? ` durante aproximadamente ${durationHours} horas para la dosis total calculada` : ""}.`,
+        `Concentracion final calculada: ${solution.concentration} mEq/mL.`,
+        `Pasar a ${safeRate} mL/h por bomba: ${safeRate} mL/h x ${solution.concentration} mEq/mL = ${potassiumRate} mEq/h de potasio${durationHours ? ` durante aproximadamente ${durationHours} horas para la dosis total calculada` : ""}.`,
+        `Velocidad maxima calculada para esta via y solucion: ${Math.min(routeRateLimit, maxRateByConcentration)} mL/h, equivalente a ${maxMeqByRoute} mEq/h; limite absoluto ${maxPotassiumRate} mEq/h.`,
         central ? "Usar solo por via central/PICC; no pasar preparacion central por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
         "Solicitar potasio y magnesio de control segun intervalo indicado y ajustar segun resultado."
       ];
@@ -2568,8 +2571,12 @@ function OrderSafety({ order }) {
       items: safetyFields(safety, [
         ["continuousRate", "Infusion", "mL/h"],
         ["infusionRateMlH", "Infusion", "mL/h"],
+        ["maxInfusionRateMlH", "Max infusion", "mL/h"],
         ["sodiumInfusateMaxRateMlH", "Max Na", "mL/h"],
+        ["potassiumConcentrationMeqMl", "K conc.", "mEq/mL"],
         ["potassiumRateMeqH", "Potasio", "mEq/h"],
+        ["maxPotassiumRateMeqH", "Max K via", "mEq/h"],
+        ["maxPotassiumRateBySelectedRouteMeqH", "Max K real", "mEq/h"],
         ["phosphateRateMmolH", "Fosforo", "mmol/h"],
         ["magnesiumRateMgH", "Magnesio", "mg/h"],
         ["hydrationRate", "Hidratacion", "cc/h"],
