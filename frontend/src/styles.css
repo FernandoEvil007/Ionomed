@@ -256,6 +256,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 .badge.leve { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
 
 .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 8px; }
+.check-grid.compact { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px; }
 .check-item {
   display: flex;
   align-items: center;
@@ -268,6 +269,51 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   color: var(--muted-strong);
 }
 .check-item input { width: auto; }
+.check-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.check-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.check-section summary::-webkit-details-marker { display: none; }
+.check-section summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.check-section summary strong {
+  color: var(--heading);
+  font-size: 0.95rem;
+}
+.check-section summary small {
+  color: var(--subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.check-section summary b {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  border: 1px solid var(--brand-border);
+  font-size: 0.78rem;
+}
+.check-section .check-grid {
+  padding: 0 10px 10px;
+}
 
 .patient-sidebar { display: grid; gap: 10px; }
 .patient-panel-toggle {
@@ -1108,6 +1154,18 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .patient-select { align-items: center; }
   .dashboard-row > span:last-child:not(.badge) { white-space: normal; }
   .check-grid, .follow-grid, .safety-grid { grid-template-columns: 1fr; }
+  .check-grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .check-section summary { padding: 8px 10px; }
+  .check-section summary strong { font-size: 0.88rem; }
+  .check-section summary small { font-size: 0.74rem; }
+  .check-section summary b { min-width: 24px; height: 24px; }
+  .check-section .check-grid { padding: 0 8px 8px; }
+  .check-item {
+    padding: 7px 8px;
+    gap: 6px;
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
   .tabs { margin: -3px -6px 8px; padding: 3px 6px 6px; gap: 4px; }
   .tab { padding: 7px 9px; font-size: 0.82rem; }
   .card h1, .summary-card h1 { font-size: 1.16rem; }
@@ -1133,6 +1191,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card, .summary-card { padding: 9px; }
+  .check-grid.compact { grid-template-columns: 1fr; }
   .dashboard-row {
     grid-template-columns: 1fr;
     align-items: start;

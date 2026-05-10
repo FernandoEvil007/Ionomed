@@ -1006,10 +1006,22 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
 }
 
 function Checklist({ title, items, selected, onToggle }) {
+  const selectedLabels = items
+    .filter(([value]) => selected.includes(value))
+    .map(([, label]) => label);
+  const summary = selectedLabels.length ? selectedLabels.slice(0, 3).join(", ") : "Sin selección";
+  const extraCount = Math.max(selectedLabels.length - 3, 0);
+
   return (
-    <div className="grid">
-      <h3>{title}</h3>
-      <div className="check-grid">
+    <details className="check-section">
+      <summary>
+        <span>
+          <strong>{title}</strong>
+          <small>{summary}{extraCount ? ` +${extraCount}` : ""}</small>
+        </span>
+        <b>{selectedLabels.length}</b>
+      </summary>
+      <div className="check-grid compact">
         {items.map(([value, label]) => (
           <label className="check-item" key={value}>
             <input type="checkbox" checked={selected.includes(value)} onChange={() => onToggle(value)} />
@@ -1017,7 +1029,7 @@ function Checklist({ title, items, selected, onToggle }) {
           </label>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
