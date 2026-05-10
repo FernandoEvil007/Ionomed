@@ -8,6 +8,7 @@ import {
   createLab,
   createOrders,
   createPatient,
+  deleteLab,
   findInstitutionById,
   findPatientById,
   latestLabBefore,
@@ -146,6 +147,14 @@ router.post("/:id/labs", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+router.delete("/:id/labs/:labId", async (req, res) => {
+  const patient = await findPatientById(req.params.id, req.user.institutionId);
+  if (!patient) return res.status(404).json({ message: "Paciente no encontrado" });
+  const lab = await deleteLab(req.params.labId, patient.id, req.user.institutionId);
+  if (!lab) return res.status(404).json({ message: "Control no encontrado" });
+  res.json({ ok: true, lab });
 });
 
 router.post("/:id/close", async (req, res) => {

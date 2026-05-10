@@ -464,6 +464,24 @@ function MainApp({ session, onLogout }) {
     }
   }
 
+  async function deleteLab(lab) {
+    if (!selectedPatient?._id || !lab?._id) return;
+    const ok = window.confirm("Borrar este control/laboratorio? Tambien se eliminaran las ordenes generadas con ese dato.");
+    if (!ok) return;
+    setError("");
+    setMessage("");
+    try {
+      await api(`/patients/${selectedPatient._id}/labs/${lab._id}`, { method: "DELETE" });
+      setEvaluation(null);
+      await loadPatientDetails(selectedPatient._id);
+      await loadPatients();
+      await loadDashboard();
+      setMessage("Control borrado. Ingresa nuevamente el valor correcto para recalcular.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function evaluateWithoutSaving() {
     setError("");
     try {
@@ -668,6 +686,7 @@ function MainApp({ session, onLogout }) {
                 patientDetails={patientDetails}
                 orderHistory={orderHistory}
                 onOrderUpdated={updateOrder}
+                onDeleteLab={deleteLab}
                 settings={institutionSettings}
               />
             )}
@@ -1483,7 +1502,7 @@ function Num({ label, value, onChange }) {
   return <label>{label}<input type="number" step="0.01" value={value || ""} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
-function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, settings }) {
+function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, onDeleteLab, settings }) {
   if (!evaluation) return <div className="alert">Aún no hay evaluación generada.</div>;
   const calc = evaluation.calculations || {};
   const classifications = evaluation.classifications || [];
@@ -1570,7 +1589,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
       <ClinicalValidationPanel />
 
       <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría">
-        <LabTrendTable labs={patientDetails?.labs || []} />
+        <LabTrendTable labs={patientDetails?.labs || []} onDeleteLab={onDeleteLab} />
         <Timeline labs={patientDetails?.labs || []} orders={orderHistory || []} />
       </FormSection>
     </div>
@@ -2375,7 +2394,7 @@ function Timeline({ labs, orders }) {
   );
 }
 
-function LabTrendTable({ labs }) {
+function LabTrendTable({ labs, onDeleteLab }) {
   const rows = [...labs].sort((a, b) => new Date(b.collectedAt || b.createdAt || 0) - new Date(a.collectedAt || a.createdAt || 0)).slice(0, 6);
   if (!rows.length) return <p>No hay laboratorios guardados para mostrar tendencia.</p>;
   return (
@@ -2390,6 +2409,7 @@ function LabTrendTable({ labs }) {
             <th>P</th>
             <th>Ca</th>
             <th>Cr</th>
+            {onDeleteLab && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -2402,6 +2422,13 @@ function LabTrendTable({ labs }) {
               <td>{display(lab.phosphorus)}</td>
               <td>{display(lab.calciumIonized ?? lab.calciumTotal)}</td>
               <td>{display(lab.creatinine)}</td>
+              {onDeleteLab && (
+                <td>
+                  <button className="icon-button danger compact-icon" type="button" title="Borrar control" onClick={() => onDeleteLab(lab)}>
+                    <Trash2 size={15} />
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

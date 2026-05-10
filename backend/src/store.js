@@ -558,6 +558,20 @@ export async function findLabById(id, patientId, institutionId) {
   ));
 }
 
+export async function deleteLab(id, patientId, institutionId) {
+  const lab = await findLabById(id, patientId, institutionId);
+  if (!lab) return null;
+  await run(
+    "DELETE FROM orders WHERE labId = ? AND patientId = ? AND institutionId = ?",
+    [id, patientId, institutionId]
+  );
+  await run(
+    "DELETE FROM labs WHERE id = ? AND patientId = ? AND institutionId = ?",
+    [id, patientId, institutionId]
+  );
+  return lab;
+}
+
 export function makeAuditEvent(user, type, note = "") {
   return {
     type,
