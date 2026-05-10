@@ -131,10 +131,15 @@ const emptySolutionForm = {
   disorder: "hipokalemia",
   electrolyte: "potasio",
   route: "periferico",
+  baseFluid: "ssn09",
+  finalVolumeMl: 500,
+  ampoules: 1,
+  ampouleMeq: 20,
   preparation: "",
   content: "",
   use: "",
   concentration: "",
+  mEqPerLiter: "",
   sodium: "",
   potassium: "",
   totalDoseMg: "",
@@ -1095,11 +1100,52 @@ const disorderLabels = {
   hipercalcemia: "Hipercalcemia"
 };
 
-function solutionRowsForElectrolyte(electrolyte, settings = {}) {
-  const disorders = solutionDisordersByElectrolyte[electrolyte] || [];
-  return catalogGroups(settings)
-    .flatMap((group) => group.rows.map((row) => ({ ...row, group: group.title })))
-    .filter((row) => row.match?.some((key) => disorders.some((disorder) => disorder.includes(key) || key.includes(disorder))));
+const baseFluidOptions = [
+  ["agua_destilada", "Agua destilada"],
+  ["ssn09", "Solucion salina 0.9%"],
+  ["hartmann", "Solucion Hartmann"],
+  ["dad5", "DAD al 5%"],
+  ["dad10", "DAD al 10%"]
+];
+
+const ampouleDefaultsByElectrolyte = {
+  sodio: 17,
+  potasio: 20,
+  magnesio: 8,
+  fosforo: 15,
+  calcio: 4.65
+};
+
+function baseFluidLabel(value) {
+  return baseFluidOptions.find(([key]) => key === value)?.[1] || value || "Liquido base";
+}
+
+function roundDose(value, decimals = 3) {
+  if (!Number.isFinite(value)) return "";
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function calculatedSolution(solution) {
+  const ampoules = Number(solution.ampoules) || 0;
+  const ampouleMeq = Number(solution.ampouleMeq) || 0;
+  const finalVolumeMl = Number(solution.finalVolumeMl) || 0;
+  const totalMeq = ampoules * ampouleMeq;
+  const concentration = finalVolumeMl > 0 ? roundDose(totalMeq / finalVolumeMl, 4) : "";
+  const mEqPerLiter = finalVolumeMl > 0 ? roundDose((totalMeq / finalVolumeMl) * 1000, 1) : "";
+  const electrolyteLabel = solution.electrolyte || "electrolito";
+  const base = baseFluidLabel(solution.baseFluid);
+  const preparation = `${ampoules} ampolla(s) de ${electrolyteLabel} (${ampouleMeq} mEq/ampolla) en ${base} hasta volumen final ${finalVolumeMl || "no definido"} mL.`;
+  const content = `${totalMeq || 0} mEq totales; ${concentration || "no calculable"} mEq/mL; ${mEqPerLiter || "no calculable"} mEq/L.`;
+  return {
+    ...solution,
+    preparation: solution.preparation?.trim() || preparation,
+    content: solution.content?.trim() || content,
+    concentration,
+    mEqPerLiter,
+    sodium: solution.electrolyte === "sodio" ? mEqPerLiter : solution.sodium,
+    potassium: solution.electrolyte === "potasio" ? concentration : solution.potassium
+  };
 }
 
 function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) {
@@ -1109,7 +1155,7 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const filteredDisorders = solutionDisordersByElectrolyte[solutionForm.electrolyte] || [];
-  const suggestedRows = solutionRowsForElectrolyte(solutionForm.electrolyte, settings);
+  const calculated = calculatedSolution(solutionForm);
 
   useEffect(() => {
     setSettings(initialSettings || {});
@@ -1121,13 +1167,14 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
       if (field === "electrolyte") {
         const disorders = solutionDisordersByElectrolyte[value] || [];
         next.disorder = disorders.includes(prev.disorder) ? prev.disorder : (disorders[0] || prev.disorder);
+        next.ampouleMeq = ampouleDefaultsByElectrolyte[value] ?? prev.ampouleMeq;
       }
       return next;
     });
   }
 
   function solutionPayload(solution) {
-    const numericFields = ["concentration", "sodium", "potassium", "totalDoseMg", "hours", "rateMlH"];
+    const numericFields = ["concentration", "mEqPerLiter", "sodium", "potassium", "totalDoseMg", "hours", "rateMlH", "ampoules", "ampouleMeq", "finalVolumeMl"];
     const payload = { ...solution, id: solution.id || `sol-${Date.now()}`, active: solution.active !== false };
     for (const field of numericFields) {
       payload[field] = solution[field] === "" || solution[field] === undefined ? "" : Number(solution[field]);
@@ -1137,9 +1184,12 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
 
   function addSolution() {
     if (!solutionForm.name.trim()) return setError("La solucion necesita un nombre.");
+    if (!Number(calculated.finalVolumeMl) || !Number(calculated.ampoules) || !Number(calculated.ampouleMeq)) {
+      return setError("Define ampollas, mEq por ampolla y volumen final para calcular la concentracion.");
+    }
     setSettings((prev) => ({
       ...(prev || {}),
-      customSolutions: [...(prev?.customSolutions || []), solutionPayload(solutionForm)]
+      customSolutions: [...(prev?.customSolutions || []), solutionPayload(calculated)]
     }));
     setSolutionForm({ ...emptySolutionForm, electrolyte: solutionForm.electrolyte, disorder: filteredDisorders[0] || solutionForm.disorder });
     setMessage("Solucion agregada. Recuerda guardar la configuracion.");
@@ -1172,7 +1222,7 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
   return (
     <section className="card grid">
       <h2>Soluciones institucionales</h2>
-      <p>Agrega preparaciones propias del servicio. Al elegir un electrolito solo se muestran ejemplos de preparacion de ese mismo electrolito.</p>
+      <p>Calcula la concentracion antes de agregarla al catalogo institucional.</p>
       {error && <div className="error">{error}</div>}
       {message && <div className="success">{message}</div>}
       <div className="grid three">
@@ -1201,33 +1251,36 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
         </label>
       </div>
 
-      <details className="solution-group" open>
-        <summary>
-          <strong>Como preparar soluciones de {solutionForm.electrolyte}</strong>
-          <span className="badge">{suggestedRows.length} guia(s)</span>
-        </summary>
-        <div className="solution-table">
-          {suggestedRows.map((row, idx) => (
-            <article className="solution-row" key={`${row.group}-${idx}`}>
-              <div>
-                <strong>{row.name}</strong>
-                <span className="badge">{routeLabel(row.route)}</span>
-              </div>
-              <small><b>Preparacion:</b> {row.preparation}</small>
-              <small><b>Contenido:</b> {row.content}</small>
-              <small><b>Uso:</b> {row.use}</small>
-            </article>
-          ))}
-        </div>
-      </details>
-
       <div className="grid three">
         <label>Nombre<input value={solutionForm.name} onChange={(e) => updateSolution("name", e.target.value)} placeholder="KCl central institucional" /></label>
-        <Num label="Na mEq/L si aplica" value={solutionForm.sodium} onChange={(v) => updateSolution("sodium", v)} />
-        <Num label="Concentracion por mL" value={solutionForm.concentration} onChange={(v) => updateSolution("concentration", v)} />
-        <Num label="Aporte K por mL" value={solutionForm.potassium} onChange={(v) => updateSolution("potassium", v)} />
-        <Num label="Dosis total mg" value={solutionForm.totalDoseMg} onChange={(v) => updateSolution("totalDoseMg", v)} />
+        <label>Liquido base
+          <select value={solutionForm.baseFluid} onChange={(e) => updateSolution("baseFluid", e.target.value)}>
+            {baseFluidOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          </select>
+        </label>
+        <label>Numero de ampollas
+          <select value={solutionForm.ampoules} onChange={(e) => updateSolution("ampoules", e.target.value)}>
+            {Array.from({ length: 30 }, (_, idx) => idx + 1).map((value) => <option value={value} key={value}>{value}</option>)}
+          </select>
+        </label>
+        <Num label="mEq por ampolla" value={solutionForm.ampouleMeq} onChange={(v) => updateSolution("ampouleMeq", v)} />
+        <Num label="Volumen final mL" value={solutionForm.finalVolumeMl} onChange={(v) => updateSolution("finalVolumeMl", v)} />
         <Num label="Velocidad mL/h" value={solutionForm.rateMlH} onChange={(v) => updateSolution("rateMlH", v)} />
+      </div>
+      <div className="metrics">
+        <Metric label="mEq/mL" value={calculated.concentration || "No calculable"} />
+        <Metric label="mEq/L" value={calculated.mEqPerLiter || "No calculable"} />
+        <Metric label="mEq totales" value={(Number(solutionForm.ampoules) || 0) * (Number(solutionForm.ampouleMeq) || 0)} />
+      </div>
+      <div className="alert">
+        <strong>Preparacion calculada:</strong> {calculated.preparation}<br />
+        <strong>Contenido:</strong> {calculated.content}
+      </div>
+      <div className="grid three">
+        <Num label="Na mEq/L si aplica" value={calculated.sodium} onChange={(v) => updateSolution("sodium", v)} />
+        <Num label="Concentracion mEq/mL" value={calculated.concentration} onChange={(v) => updateSolution("concentration", v)} />
+        <Num label="Aporte K mEq/mL" value={calculated.potassium} onChange={(v) => updateSolution("potassium", v)} />
+        <Num label="Dosis total mg" value={solutionForm.totalDoseMg} onChange={(v) => updateSolution("totalDoseMg", v)} />
       </div>
       <label>Preparacion<textarea value={solutionForm.preparation} onChange={(e) => updateSolution("preparation", e.target.value)} placeholder="Ej: 40 mL de Katrol + 460 mL de SSN 0.9%" /></label>
       <label>Uso / advertencia<textarea value={solutionForm.use} onChange={(e) => updateSolution("use", e.target.value)} placeholder="Ej: Solo via central, no pasar por periferica" /></label>
