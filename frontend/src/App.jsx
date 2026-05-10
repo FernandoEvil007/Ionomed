@@ -617,7 +617,8 @@ function MainApp({ session, onLogout }) {
           if (fullPatient) selectPatient(fullPatient);
         }} />
 
-        <section className="workbench">
+        <section className={`workbench ${tab === "soluciones" ? "solutions-workbench" : ""}`}>
+          {tab !== "soluciones" && (
           <aside className={`card patient-sidebar ${patientPanelOpen ? "open" : "collapsed"}`}>
             <button className="patient-panel-toggle" type="button" onClick={() => setPatientPanelOpen((value) => !value)}>
               <span>
@@ -669,9 +670,10 @@ function MainApp({ session, onLogout }) {
             </div>
             </div>
           </aside>
+          )}
 
           <section className="card workspace-card">
-            <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />
+            {tab !== "soluciones" && <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />}
             <div className="tabs app-tabs">
               <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => setTab("nuevo")}>Paciente</button>
               <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => setTab("laboratorio")}>Laboratorios</button>
@@ -691,7 +693,7 @@ function MainApp({ session, onLogout }) {
                 settings={institutionSettings}
               />
             )}
-            {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} />}
+            {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} isAdmin={isAdmin} onSettingsSaved={setInstitutionSettings} />}
             {tab === "admin" && isAdmin && <AdminPanel initialSettings={institutionSettings} onSettingsSaved={setInstitutionSettings} />}
           </section>
         </section>
@@ -1055,7 +1057,183 @@ function catalogGroups(settings = {}) {
   return [...solutionGroups, { title: "Soluciones institucionales", rows: customRows }];
 }
 
-function SolutionsGuide({ evaluation, settings }) {
+const solutionDisordersByElectrolyte = {
+  sodio: ["hiponatremia", "hipernatremia"],
+  potasio: ["hipokalemia", "hiperkalemia"],
+  magnesio: ["hipomagnesemia"],
+  fosforo: ["hipofosfatemia", "hiperfosfatemia"],
+  calcio: ["hipocalcemia", "hipercalcemia"]
+};
+
+const disorderLabels = {
+  hiponatremia: "Hiponatremia",
+  hipernatremia: "Hipernatremia",
+  hipokalemia: "Hipokalemia",
+  hiperkalemia: "Hiperkalemia",
+  hipomagnesemia: "Hipomagnesemia",
+  hipofosfatemia: "Hipofosfatemia",
+  hiperfosfatemia: "Hiperfosfatemia",
+  hipocalcemia: "Hipocalcemia",
+  hipercalcemia: "Hipercalcemia"
+};
+
+function solutionRowsForElectrolyte(electrolyte, settings = {}) {
+  const disorders = solutionDisordersByElectrolyte[electrolyte] || [];
+  return catalogGroups(settings)
+    .flatMap((group) => group.rows.map((row) => ({ ...row, group: group.title })))
+    .filter((row) => row.match?.some((key) => disorders.some((disorder) => disorder.includes(key) || key.includes(disorder))));
+}
+
+function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) {
+  const [settings, setSettings] = useState(initialSettings || {});
+  const [solutionForm, setSolutionForm] = useState(emptySolutionForm);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const filteredDisorders = solutionDisordersByElectrolyte[solutionForm.electrolyte] || [];
+  const suggestedRows = solutionRowsForElectrolyte(solutionForm.electrolyte, settings);
+
+  useEffect(() => {
+    setSettings(initialSettings || {});
+  }, [initialSettings]);
+
+  function updateSolution(field, value) {
+    setSolutionForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "electrolyte") {
+        const disorders = solutionDisordersByElectrolyte[value] || [];
+        next.disorder = disorders.includes(prev.disorder) ? prev.disorder : (disorders[0] || prev.disorder);
+      }
+      return next;
+    });
+  }
+
+  function solutionPayload(solution) {
+    const numericFields = ["concentration", "sodium", "potassium", "totalDoseMg", "hours", "rateMlH"];
+    const payload = { ...solution, id: solution.id || `sol-${Date.now()}`, active: solution.active !== false };
+    for (const field of numericFields) {
+      payload[field] = solution[field] === "" || solution[field] === undefined ? "" : Number(solution[field]);
+    }
+    return payload;
+  }
+
+  function addSolution() {
+    if (!solutionForm.name.trim()) return setError("La solucion necesita un nombre.");
+    setSettings((prev) => ({
+      ...(prev || {}),
+      customSolutions: [...(prev?.customSolutions || []), solutionPayload(solutionForm)]
+    }));
+    setSolutionForm({ ...emptySolutionForm, electrolyte: solutionForm.electrolyte, disorder: filteredDisorders[0] || solutionForm.disorder });
+    setMessage("Solucion agregada. Recuerda guardar la configuracion.");
+  }
+
+  function removeSolution(id) {
+    setSettings((prev) => ({
+      ...(prev || {}),
+      customSolutions: (prev?.customSolutions || []).filter((solution) => solution.id !== id)
+    }));
+  }
+
+  async function saveSettings(event) {
+    event?.preventDefault?.();
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const data = await api("/admin/settings", { method: "PUT", body: JSON.stringify({ settings }) });
+      setSettings(data.settings || {});
+      onSettingsSaved?.(data.settings || {});
+      setMessage("Catalogo institucional guardado.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="card grid">
+      <h2>Soluciones institucionales</h2>
+      <p>Agrega preparaciones propias del servicio. Al elegir un electrolito solo se muestran ejemplos de preparacion de ese mismo electrolito.</p>
+      {error && <div className="error">{error}</div>}
+      {message && <div className="success">{message}</div>}
+      <div className="grid three">
+        <label>Electrolito
+          <select value={solutionForm.electrolyte} onChange={(e) => updateSolution("electrolyte", e.target.value)}>
+            <option value="sodio">Sodio</option>
+            <option value="potasio">Potasio</option>
+            <option value="magnesio">Magnesio</option>
+            <option value="fosforo">Fosforo</option>
+            <option value="calcio">Calcio</option>
+          </select>
+        </label>
+        <label>Trastorno
+          <select value={solutionForm.disorder} onChange={(e) => updateSolution("disorder", e.target.value)}>
+            {filteredDisorders.map((disorder) => <option value={disorder} key={disorder}>{disorderLabels[disorder] || disorder}</option>)}
+          </select>
+        </label>
+        <label>Via
+          <select value={solutionForm.route} onChange={(e) => updateSolution("route", e.target.value)}>
+            <option value="periferico">Periferica</option>
+            <option value="linea_media">Linea media</option>
+            <option value="picc">PICC</option>
+            <option value="central">Central</option>
+            <option value="oral">Oral/enteral</option>
+          </select>
+        </label>
+      </div>
+
+      <details className="solution-group" open>
+        <summary>
+          <strong>Como preparar soluciones de {solutionForm.electrolyte}</strong>
+          <span className="badge">{suggestedRows.length} guia(s)</span>
+        </summary>
+        <div className="solution-table">
+          {suggestedRows.map((row, idx) => (
+            <article className="solution-row" key={`${row.group}-${idx}`}>
+              <div>
+                <strong>{row.name}</strong>
+                <span className="badge">{routeLabel(row.route)}</span>
+              </div>
+              <small><b>Preparacion:</b> {row.preparation}</small>
+              <small><b>Contenido:</b> {row.content}</small>
+              <small><b>Uso:</b> {row.use}</small>
+            </article>
+          ))}
+        </div>
+      </details>
+
+      <div className="grid three">
+        <label>Nombre<input value={solutionForm.name} onChange={(e) => updateSolution("name", e.target.value)} placeholder="KCl central institucional" /></label>
+        <Num label="Na mEq/L si aplica" value={solutionForm.sodium} onChange={(v) => updateSolution("sodium", v)} />
+        <Num label="Concentracion por mL" value={solutionForm.concentration} onChange={(v) => updateSolution("concentration", v)} />
+        <Num label="Aporte K por mL" value={solutionForm.potassium} onChange={(v) => updateSolution("potassium", v)} />
+        <Num label="Dosis total mg" value={solutionForm.totalDoseMg} onChange={(v) => updateSolution("totalDoseMg", v)} />
+        <Num label="Velocidad mL/h" value={solutionForm.rateMlH} onChange={(v) => updateSolution("rateMlH", v)} />
+      </div>
+      <label>Preparacion<textarea value={solutionForm.preparation} onChange={(e) => updateSolution("preparation", e.target.value)} placeholder="Ej: 40 mL de Katrol + 460 mL de SSN 0.9%" /></label>
+      <label>Uso / advertencia<textarea value={solutionForm.use} onChange={(e) => updateSolution("use", e.target.value)} placeholder="Ej: Solo via central, no pasar por periferica" /></label>
+      <div className="form-actions">
+        <button className="btn secondary" type="button" onClick={addSolution}><Plus size={18} /> Agregar solucion</button>
+        <button className="btn primary" disabled={loading} type="button" onClick={saveSettings}><Save size={18} /> Guardar catalogo</button>
+      </div>
+      <div className="solution-admin-list">
+        {(settings.customSolutions || []).length === 0 && <p>No hay soluciones institucionales creadas.</p>}
+        {(settings.customSolutions || []).map((solution) => (
+          <article className="solution-admin-row" key={solution.id}>
+            <span>
+              <strong>{solution.name}</strong>
+              <small>{solution.disorder} · {routeLabel(solution.route)} · {solution.preparation}</small>
+            </span>
+            <button className="icon-button danger" type="button" onClick={() => removeSolution(solution.id)}><Trash2 size={16} /></button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SolutionsGuide({ evaluation, settings, isAdmin = false, onSettingsSaved }) {
   const disorders = (evaluation?.classifications || []).map((item) => (item.disorder || "").toLowerCase());
   const matchingGroups = catalogGroups(settings)
     .map((group) => ({
@@ -1093,6 +1271,7 @@ function SolutionsGuide({ evaluation, settings }) {
             </div>
           </details>
         ))}
+        {isAdmin && <InstitutionalSolutionsPanel initialSettings={settings} onSettingsSaved={onSettingsSaved} />}
       </section>
     );
   }
@@ -1125,6 +1304,7 @@ function SolutionsGuide({ evaluation, settings }) {
           </div>
         </details>
       ))}
+      {isAdmin && <InstitutionalSolutionsPanel initialSettings={settings} onSettingsSaved={onSettingsSaved} />}
     </section>
   );
 }
@@ -1272,6 +1452,7 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
         <button className="btn primary" disabled={loading} type="submit"><Save size={18} /> Guardar configuracion</button>
       </form>
 
+      {false && (
       <section className="card grid">
         <h2>Soluciones institucionales</h2>
         <p>Agrega preparaciones propias del servicio. Se suman al catalogo base y aparecen en Soluciones y en el selector de ordenes.</p>
@@ -1332,6 +1513,7 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }
