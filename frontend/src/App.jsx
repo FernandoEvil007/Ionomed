@@ -1822,7 +1822,9 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
           <Metric label="Osm calculada" value={display(calc.calculatedSerumOsmolality, "mOsm/kg")} />
           <Metric label="NaCl 3% Δ/L" value={display(calc.sodium3ChangePerLiter, "mmol/L")}/>
           <Metric label="Deficit Na estimado" value={display(calc.sodiumDeficitMeq, "mEq")} />
+          <Metric label="Basal K estimado" value={display(calc.potassiumBasalMeq, "mEq")} />
           <Metric label="Deficit K estimado" value={display(calc.potassiumDeficitMeq, "mEq")} />
+          <Metric label="Total K a reponer" value={display(calc.potassiumTotalReplacementMeq, "mEq")} />
         </div>
       </FormSection>
 
@@ -2224,14 +2226,24 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
     const central = ["central", "picc"].includes(selectedRoute);
     const baseOptions = central ? electrolyteSolutionOptions.potassiumCentral : electrolyteSolutionOptions.potassiumPeripheral;
     options = [...baseOptions, ...institutionalOptions(settings, disorder, selectedRoute).filter((solution) => Number.isFinite(solution.concentration))];
-    defaultRate = central ? (potassium < 2 ? 100 : 50) : (defaultRate || 50);
     calculator = (solution) => {
-      const potassiumRate = Math.round(defaultRate * solution.concentration * 10) / 10;
+      const maxPotassiumRate = central ? 20 : 8;
+      const routeRateLimit = central ? 100 : (selectedRoute === "linea_media" ? 70 : 50);
+      const maxRateByConcentration = solution.concentration ? Math.floor((maxPotassiumRate / solution.concentration) * 10) / 10 : routeRateLimit;
+      const targetRate = central ? (severity === "severa" ? 100 : 50) : (defaultRate || routeRateLimit);
+      const safeRate = Math.min(routeRateLimit, maxRateByConcentration, targetRate);
+      const potassiumRate = Math.round(safeRate * solution.concentration * 10) / 10;
+      const totalReplacement = safety.potassiumTotalReplacementMeq;
+      const durationHours = totalReplacement && potassiumRate ? Math.round((totalReplacement / potassiumRate) * 10) / 10 : null;
+      const replacementText = totalReplacement
+        ? `Calculo de dosis: basal ${safety.potassiumBasalMeq} mEq (peso x ${safety.potassiumBasalFactor} mEq) + ${safety.potassiumReplacementPercent}% (${safety.potassiumDeficitMeq} mEq) = ${totalReplacement} mEq totales a reponer.`
+        : "Calculo de dosis: falta peso para estimar basal y total de potasio a reponer.";
       return [
         `Paciente con ${String(order.disorder || "hipokalemia").toLowerCase()} (K ${Number.isFinite(potassium) ? potassium : "no disponible"} mmol/L).`,
+        replacementText,
         `Solucion escogida: ${solution.label}.`,
         solution.preparation,
-        `Pasar a ${defaultRate} mL/h por bomba (${potassiumRate} mEq/h de potasio).`,
+        `Pasar a ${safeRate} mL/h por bomba (${potassiumRate} mEq/h de potasio)${durationHours ? ` durante aproximadamente ${durationHours} horas para la dosis total calculada` : ""}.`,
         central ? "Usar solo por via central/PICC; no pasar preparacion central por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
         "Solicitar potasio y magnesio de control segun intervalo indicado y ajustar segun resultado."
       ];
@@ -2563,6 +2575,17 @@ function OrderSafety({ order }) {
       ])
     },
     {
+      title: "Reposicion de potasio",
+      items: safetyFields(safety, [
+        ["potassiumBasalMeq", "Basal", "mEq"],
+        ["potassiumBasalFactor", "Factor", "mEq/kg"],
+        ["potassiumReplacementPercent", "Porcentaje", "%"],
+        ["potassiumDeficitMeq", "Deficit", "mEq"],
+        ["potassiumTotalReplacementMeq", "Total", "mEq"],
+        ["estimatedInfusionHours", "Duracion", "h"]
+      ])
+    },
+    {
       title: "Datos clave",
       items: safetyFields(safety, [
         ["sodiumMeasured", "Na medido", "mmol/L"],
@@ -2763,7 +2786,9 @@ function buildClinicalSummary(evaluation, patientDetails) {
     `Na corregido: ${display(calc.sodiumCorrected, "mmol/L")}`,
     `Ca corregido: ${display(calc.calciumCorrected, "mg/dL")}`,
     `Déficit Na: ${display(calc.sodiumDeficitMeq, "mEq")}`,
+    `Basal K: ${display(calc.potassiumBasalMeq, "mEq")}`,
     `Déficit K: ${display(calc.potassiumDeficitMeq, "mEq")}`,
+    `Total K a reponer: ${display(calc.potassiumTotalReplacementMeq, "mEq")}`,
     "",
     "Trastornos detectados",
     ...((evaluation?.classifications || []).map((item) => `- ${item.disorder} (${item.severity}, ${item.priority})`) || ["- Ninguno"]),

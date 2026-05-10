@@ -6,6 +6,56 @@ function round(value, digits = 1) {
   return Math.round(Number(value) * factor) / factor;
 }
 
+function hypokalemiaSeverityFromPotassium(potassium) {
+  const k = Number(potassium);
+  if (!Number.isFinite(k) || k >= 3.5) return null;
+  if (k < 2.5) return "severa";
+  if (k < 3.0) return "moderada";
+  return "leve";
+}
+
+function hypokalemiaBasalFactor(severity) {
+  return {
+    leve: 1,
+    moderada: 1.5,
+    severa: 2
+  }[severity] || null;
+}
+
+function hypokalemiaReplacementFraction(severity) {
+  return {
+    leve: 0.05,
+    moderada: 0.10,
+    severa: 0.15
+  }[severity] || null;
+}
+
+export function calculateHypokalemiaReplacement({ weightKg, potassium, severity }) {
+  const weight = Number(weightKg);
+  const resolvedSeverity = severity || hypokalemiaSeverityFromPotassium(potassium);
+  const basalFactor = hypokalemiaBasalFactor(resolvedSeverity);
+  const fraction = hypokalemiaReplacementFraction(resolvedSeverity);
+  if (!weight || weight <= 0 || !basalFactor || !fraction) {
+    return {
+      potassiumBasalMeq: null,
+      potassiumDeficitMeq: null,
+      potassiumTotalReplacementMeq: null,
+      potassiumBasalFactor: basalFactor,
+      potassiumReplacementPercent: fraction ? round(fraction * 100, 0) : null
+    };
+  }
+
+  const potassiumBasalMeq = round(weight * basalFactor, 0);
+  const potassiumDeficitMeq = round(potassiumBasalMeq * fraction, 0);
+  return {
+    potassiumBasalMeq,
+    potassiumDeficitMeq,
+    potassiumTotalReplacementMeq: round(potassiumBasalMeq + potassiumDeficitMeq, 0),
+    potassiumBasalFactor: basalFactor,
+    potassiumReplacementPercent: round(fraction * 100, 0)
+  };
+}
+
 export function correctedSodium({ sodium, glucose, factor = 1.6 }) {
   if (sodium === undefined || sodium === null) return null;
   if (!glucose || glucose <= 100) return round(sodium, 1);
@@ -40,7 +90,11 @@ function electrolyteDeficits({ patient, lab, sodiumCorrected, totalBodyWater }) 
   if (!weightKg || weightKg <= 0) {
     return {
       sodiumDeficitMeq: null,
-      potassiumDeficitMeq: null
+      potassiumBasalMeq: null,
+      potassiumDeficitMeq: null,
+      potassiumTotalReplacementMeq: null,
+      potassiumBasalFactor: null,
+      potassiumReplacementPercent: null
     };
   }
 
@@ -49,13 +103,11 @@ function electrolyteDeficits({ patient, lab, sodiumCorrected, totalBodyWater }) 
   const sodiumDeficitMeq = sodium !== undefined && sodium !== null && Number(sodium) < 135 && totalBodyWater
     ? round((135 - Number(sodium)) * Number(totalBodyWater), 0)
     : null;
-  const potassiumDeficitMeq = potassium !== undefined && potassium !== null && Number(potassium) < 3.5
-    ? round((3.5 - Number(potassium)) * weightKg * 0.4, 0)
-    : null;
+  const potassiumReplacement = calculateHypokalemiaReplacement({ weightKg, potassium });
 
   return {
     sodiumDeficitMeq,
-    potassiumDeficitMeq
+    ...potassiumReplacement
   };
 }
 

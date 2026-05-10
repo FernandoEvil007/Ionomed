@@ -38,13 +38,22 @@ const cases = [
     name: "Hipokalemia menor de 2",
     patient: basePatient,
     lab: { potassium: 1.8, magnesium: 1.8, creatinine: 0.9 },
-    expect: "Hipokalemia"
+    expect: "Hipokalemia",
+    expectSafety: { potassiumBasalMeq: 140, potassiumDeficitMeq: 21, potassiumTotalReplacementMeq: 161 }
   },
   {
     name: "Hipokalemia moderada central",
     patient: basePatient,
     lab: { potassium: 2.4, magnesium: 1.9, creatinine: 0.9 },
-    expect: "Hipokalemia"
+    expect: "Hipokalemia",
+    expectSafety: { potassiumBasalMeq: 140, potassiumDeficitMeq: 21, potassiumTotalReplacementMeq: 161 }
+  },
+  {
+    name: "Hipokalemia leve con calculo basal",
+    patient: basePatient,
+    lab: { potassium: 3.3, magnesium: 1.9, creatinine: 0.9 },
+    expect: "Hipokalemia",
+    expectSafety: { potassiumBasalMeq: 70, potassiumDeficitMeq: 4, potassiumTotalReplacementMeq: 74 }
   },
   {
     name: "Hiperkalemia mayor de 6.5",
@@ -90,6 +99,18 @@ for (const clinicalCase of cases) {
   if (!matched) {
     failures += 1;
     console.error(`FALLO: ${clinicalCase.name}. Esperado: ${clinicalCase.expect}`);
+    continue;
+  }
+  if (clinicalCase.expectSafety) {
+    const order = evaluation.orders.find((item) => item.disorder.includes(clinicalCase.expect));
+    const safety = order?.safety || {};
+    const mismatches = Object.entries(clinicalCase.expectSafety).filter(([key, value]) => safety[key] !== value);
+    if (mismatches.length) {
+      failures += 1;
+      console.error(`FALLO: ${clinicalCase.name}. Seguridad esperada no coincide: ${mismatches.map(([key, value]) => `${key}=${value}, recibido ${safety[key]}`).join("; ")}`);
+      continue;
+    }
+    console.log(`OK: ${clinicalCase.name}`);
   } else {
     console.log(`OK: ${clinicalCase.name}`);
   }

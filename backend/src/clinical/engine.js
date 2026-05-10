@@ -1,4 +1,4 @@
-import { calculateAll } from "./calculations.js";
+import { calculateAll, calculateHypokalemiaReplacement } from "./calculations.js";
 
 function hasAny(list = [], values = []) {
   const active = activeList(list);
@@ -377,9 +377,19 @@ function potassiumFluidPlan(patient, classification, safety) {
     const central = safety.centralAccess || centralRequired || centralPreferred;
     const midline = patient.venousAccess === "linea_media";
     const concentrationMeqMl = central ? 0.16 : 0.1;
-    const maxInfusionRateMlH = central ? 100 : (midline ? 70 : 50);
-    const infusionRateMlH = central ? (centralRequired ? 100 : 50) : maxInfusionRateMlH;
+    const maxPotassiumRateMeqH = central ? 20 : 8;
+    const maxRateByPotassiumMlH = Math.floor((maxPotassiumRateMeqH / concentrationMeqMl) * 10) / 10;
+    const routeLimitedRateMlH = central ? 100 : (midline ? 70 : 50);
+    const maxInfusionRateMlH = Math.min(maxRateByPotassiumMlH, routeLimitedRateMlH);
+    const infusionRateMlH = Math.min(maxInfusionRateMlH, central ? (classification.severity === "severa" ? 100 : 50) : routeLimitedRateMlH);
     const potassiumRateMeqH = Math.round(infusionRateMlH * concentrationMeqMl * 10) / 10;
+    const totalReplacementMeq = safety.potassiumTotalReplacementMeq;
+    const estimatedInfusionHours = totalReplacementMeq && potassiumRateMeqH
+      ? Math.round((totalReplacementMeq / potassiumRateMeqH) * 10) / 10
+      : null;
+    const replacementText = totalReplacementMeq
+      ? `Calculo de dosis: basal ${safety.potassiumBasalMeq} mEq (peso x ${safety.potassiumBasalFactor} mEq) + ${safety.potassiumReplacementPercent}% (${safety.potassiumDeficitMeq} mEq) = ${totalReplacementMeq} mEq totales a reponer. `
+      : "Calculo de dosis: falta peso para estimar basal y total de potasio a reponer. ";
     const potassiumInfusionType = central ? "infusion de potasio central" : "infusion de potasio periferica";
     const selectedInfusion = central
       ? "KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%"
@@ -390,10 +400,15 @@ function potassiumFluidPlan(patient, classification, safety) {
       continuousRate: infusionRateMlH,
       selectedInfusion: `${potassiumInfusionType}: ${selectedInfusion}`,
       potassiumRateMeqH,
+      potassiumBasalMeq: safety.potassiumBasalMeq,
+      potassiumDeficitMeq: safety.potassiumDeficitMeq,
+      potassiumTotalReplacementMeq: totalReplacementMeq,
+      potassiumReplacementPercent: safety.potassiumReplacementPercent,
+      estimatedInfusionHours,
       infusionRateMlH,
       maxInfusionRateMlH,
       availableInfusions,
-      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
+      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${replacementText}${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba${estimatedInfusionHours ? `; duracion estimada ${estimatedInfusionHours} horas para la dosis total calculada` : ""}. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
       controls: [
         ...(centralRequired && !safety.centralAccess ? ["K menor de 2 mmol/L: cateter venoso central mandatorio antes de iniciar KCl central"] : []),
         ...(centralPreferred && !centralRequired && !safety.centralAccess ? ["K menor de 2.5 mmol/L: preferir via central; si no esta disponible, confirmar riesgo/beneficio antes de usar via periferica"] : []),
@@ -671,6 +686,9 @@ function potassiumSafety(patient, lab, calculations, classification) {
   const centralAccess = ["central", "picc"].includes(patient.venousAccess);
   const midlineAccess = patient.venousAccess === "linea_media";
   const monitor = classification.priority === "critica";
+  const replacement = classification.disorder.includes("Hipokalemia")
+    ? calculateHypokalemiaReplacement({ weightKg: patient.weightKg, potassium: k, severity: classification.severity })
+    : {};
   return {
     potassium: k,
     egfr: calculations.egfr,
@@ -679,14 +697,16 @@ function potassiumSafety(patient, lab, calculations, classification) {
     anuria,
     centralAccess,
     midlineAccess,
-    preferCentralAccess: k < 2,
+    preferCentralAccess: k < 2.5,
+    centralAccessMandatory: k < 2,
     criticalCareRequired: k < 2 || k > 6.5,
     requiresEcg: k > 5.5 || k < 3.0 || monitor,
     requiresCardiacMonitoring: monitor || k < 2 || k > 6.5,
     peripheralMaxInfusionRateMlH: midlineAccess ? 70 : 50,
     centralMaxInfusionRateMlH: 100,
     peripheralMaxKclRate: 8,
-    centralMaxKclRate: 20
+    centralMaxKclRate: 20,
+    ...replacement
   };
 }
 
