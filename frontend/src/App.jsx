@@ -819,36 +819,20 @@ const solutionGroups = [
     title: "Reposicion de potasio",
     rows: [
       {
-        name: "Cloruro de potasio 0.02 mEq/mL",
+        name: "Cloruro de potasio periferico",
         match: ["hipokalemia"],
         route: "Periferico",
-        preparation: "En DAD al 5% x 500 mL",
-        content: "0.02 mEq/mL",
-        use: "Reposicion periferica lenta; calcular velocidad final en mEq/h."
+        preparation: "25 mL de Katrol + 475 cc de solucion salina 0.9%",
+        content: "Aproximado 0.1 mEq/mL si Katrol aporta 2 mEq/mL",
+        use: "Usar por via periferica con bomba. No superar 8 mEq/h por via periferica."
       },
       {
-        name: "Cloruro de potasio 0.04 mEq/mL",
-        match: ["hipokalemia"],
-        route: "Periferico",
-        preparation: "En solucion salina 0.9% x 250 o 500 mL",
-        content: "0.04 mEq/mL",
-        use: "Opcion periferica preferida si se quiere evitar carga de dextrosa."
-      },
-      {
-        name: "Cloruro de potasio 0.2 mEq/mL",
+        name: "Cloruro de potasio central",
         match: ["hipokalemia"],
         route: "Central",
-        preparation: "x 100 mL en agua destilada",
-        content: "0.2 mEq/mL",
-        use: "Via central; requiere bomba y monitorizacion segun severidad/protocolo."
-      },
-      {
-        name: "Cloruro de potasio 0.2 mEq/mL",
-        match: ["hipokalemia"],
-        route: "Central",
-        preparation: "x 100 mL en SSN 0.9%",
-        content: "0.2 mEq/mL",
-        use: "Via central; alternativa en SSN 0.9%."
+        preparation: "40 mL de Katrol + 460 mL de solucion salina 0.9%",
+        content: "Aproximado 0.16 mEq/mL si Katrol aporta 2 mEq/mL",
+        use: "Solo via central. No pasar por periferica. No superar 20 mEq/h por via central."
       }
     ]
   },
@@ -893,7 +877,7 @@ const solutionGroups = [
         name: "Hiponatremia",
         match: ["hiponatremia"],
         route: "Segun acceso",
-        preparation: "Solucion hipertónica 7.5%, solucion hipertónica 3%, solucion salina 0.9%",
+        preparation: "SSN 3%: 400 cc de SSN 0.9% + 10 ampollas de Natrol. SSN 0.9% si hipovolemia.",
         content: "Elegir segun severidad, volemia y protocolo",
         use: "3% o 7.5% para correccion activa; SSN 0.9% si hipovolemia."
       },
@@ -901,7 +885,7 @@ const solutionGroups = [
         name: "Hipernatremia",
         match: ["hipernatremia"],
         route: "IV / enteral / oral",
-        preparation: "SSN 0.45%, DAD 5%, agua libre por sonda enteral o via oral",
+        preparation: "SSN 0.45%: 2 ampollas de Natrol + 480 cc de agua destilada. Alternativas: DAD 5%, agua libre enteral/oral.",
         content: "Reposicion de agua libre",
         use: "Ajustar tasa para evitar descenso rapido de sodio."
       }
@@ -1405,21 +1389,19 @@ function Metric({ label, value }) {
 
 const sodiumSolutionOptions = [
   { key: "d5w", label: "Dextrosa al 5%", sodium: 0 },
-  { key: "saline045", label: "Solucion salina 0.45%", sodium: 77 },
+  { key: "saline045", label: "Solucion salina 0.45%", sodium: 77, preparation: "Preparacion SSN 0.45%: 2 ampollas de Natrol + 480 cc de agua destilada." },
   { key: "ringer", label: "Ringer lactato", sodium: 130 },
   { key: "saline09", label: "Solucion salina 0.9%", sodium: 154 },
-  { key: "saline3", label: "Solucion salina 3%", sodium: 513 },
+  { key: "saline3", label: "Solucion salina 3%", sodium: 513, preparation: "Preparacion SSN 3%: 400 cc de SSN 0.9% + 10 ampollas de Natrol." },
   { key: "saline75", label: "Solucion salina 7.5%", sodium: 1283 }
 ];
 
 const electrolyteSolutionOptions = {
   potassiumPeripheral: [
-    { key: "k002", label: "KCl 0.02 mEq/mL en DAD 5% x 500 mL", concentration: 0.02 },
-    { key: "k004", label: "KCl 0.04 mEq/mL en SSN 0.9% x 250 o 500 mL", concentration: 0.04 }
+    { key: "kperipheral", label: "KCl periferico: 25 mL Katrol + 475 cc SSN 0.9%", concentration: 0.1, preparation: "Preparacion KCl periferico: mezclar 25 mL de Katrol con 475 cc de solucion salina 0.9%. No superar 8 mEq/h por via periferica." }
   ],
   potassiumCentral: [
-    { key: "k02ssn", label: "KCl 0.2 mEq/mL x 100 mL en SSN 0.9%", concentration: 0.2 },
-    { key: "k02agua", label: "KCl 0.2 mEq/mL x 100 mL en agua destilada", concentration: 0.2 }
+    { key: "kcentral", label: "KCl central: 40 mL Katrol + 460 mL SSN 0.9%", concentration: 0.16, preparation: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Solo via central; no pasar por periferica. No superar 20 mEq/h por via central." }
   ],
   magnesium: [
     { key: "mg4000", label: "Magnesio 4000 mg endovenosos para 24 horas", totalDoseMg: 4000, hours: 24 }
@@ -1490,6 +1472,7 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
         `Paciente con ${String(order.disorder || "hiponatremia").toLowerCase()} (Na ${sodium} mmol/L).`,
         "Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1).",
         `Solucion escogida: ${solution.label} (Na ${solution.sodium} mEq/L). ACT estimada: ${totalBodyWater} L.`,
+        ...(solution.preparation ? [solution.preparation] : []),
         `Cambio esperado: ${absoluteChange} mEq/L de ${direction} por cada 1000 cc.`,
         `Cambio objetivo elegido: ${desired24h} mEq/L.`,
         `Volumen calculado para ese cambio: ${volume72h ?? "no calculable"} cc, administrado en 72 horas para correccion lenta.`,
@@ -1503,6 +1486,7 @@ function SodiumSolutionSelector({ order, calculations, onTextCalculated }) {
       `Paciente con ${String(order.disorder || "trastorno del sodio").toLowerCase()} (Na ${sodium} mmol/L).`,
       "Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1).",
       `Solucion escogida: ${solution.label} (Na ${solution.sodium} mEq/L). ACT estimada: ${totalBodyWater} L.`,
+      ...(solution.preparation ? [solution.preparation] : []),
       `Cambio esperado: ${absoluteChange} mEq/L de ${direction} por cada 1000 cc.`,
       `Cambio objetivo elegido: ${desired24h} mEq/L en 24 horas.`,
       `Volumen calculado: ${volume12h ?? "no calculable"} cc como limite de 12 horas y ${volume24h ?? "no calculable"} cc para el objetivo de 24 horas.`,
@@ -1591,8 +1575,9 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
       return [
         `Paciente con ${String(order.disorder || "hipokalemia").toLowerCase()} (K ${Number.isFinite(potassium) ? potassium : "no disponible"} mmol/L).`,
         `Solucion escogida: ${solution.label}.`,
+        solution.preparation,
         `Pasar a ${defaultRate} mL/h por bomba (${potassiumRate} mEq/h de potasio).`,
-        central ? "Usar por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten.",
+        central ? "Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
         "Solicitar potasio y magnesio de control segun intervalo indicado y ajustar segun resultado."
       ];
     };
@@ -2128,9 +2113,9 @@ function orderSolutionOptions(order) {
       .slice(0, 6);
   }
   const disorder = String(order.disorder || "").toLowerCase();
-  if (disorder.includes("hiponatremia")) return ["Solucion salina 3%", "Solucion salina 7.5%", "Solucion salina 0.9%"];
-  if (disorder.includes("hipernatremia")) return ["Dextrosa al 5%", "Solucion salina 0.45%", "Agua libre oral/enteral"];
-  if (disorder.includes("hipokalemia")) return ["KCl periferico 0.02 mEq/mL", "KCl periferico 0.04 mEq/mL", "KCl central 0.2 mEq/mL"];
+  if (disorder.includes("hiponatremia")) return ["SSN 3%: 400 cc SSN 0.9% + 10 ampollas Natrol", "Solucion salina 0.9% si hipovolemia"];
+  if (disorder.includes("hipernatremia")) return ["SSN 0.45%: 2 ampollas Natrol + 480 cc agua destilada", "Dextrosa al 5%", "Agua libre oral/enteral"];
+  if (disorder.includes("hipokalemia")) return ["KCl periferico: 25 mL Katrol + 475 cc SSN 0.9%", "KCl central: 40 mL Katrol + 460 mL SSN 0.9%"];
   if (disorder.includes("hipomagnesemia")) return ["Magnesio 4000 mg IV para 24 horas"];
   if (disorder.includes("hipofosfatemia")) return ["Fosfato de potasio central", "Fosfato de potasio periferico"];
   if (disorder.includes("hipocalcemia")) return ["Gluconato de calcio al 10%"];

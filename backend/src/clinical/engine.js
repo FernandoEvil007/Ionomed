@@ -92,6 +92,13 @@ const sodiumInfusates = [
   { key: "saline75", name: "Solucion salina 7.5%", sodium: 1283 }
 ];
 
+const solutionPreparation = {
+  saline045: "Preparacion SSN 0.45%: mezclar 2 ampollas de Natrol con 480 cc de agua destilada.",
+  saline3: "Preparacion SSN 3%: mezclar 400 cc de solucion salina 0.9% con 10 ampollas de Natrol.",
+  potassiumPeripheral: "Preparacion KCl periferico: mezclar 25 mL de Katrol con 475 cc de solucion salina 0.9%. Usar por via periferica con bomba; no superar 8 mEq/h por via periferica.",
+  potassiumCentral: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central."
+};
+
 function sodiumInfusatePlan(sodium, totalBodyWater, dailyLimit, preferredKey = "saline3") {
   const limits = sodiumCorrectionLimits(dailyLimit);
   if (!sodium || !totalBodyWater) {
@@ -203,8 +210,8 @@ function severeHyponatremiaContinuousPlan(patient, calculations, dailyLimit) {
     : "No calculable sin sodio y agua corporal total.";
   const hypertonicOptions = "solucion salina hipertonica al 7.5% o al 3% segun disponibilidad/protocolo; solucion salina 0.9% si hipovolemia";
   const hypertonicText = hypertonicRate
-    ? `Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1). ${formulaSummary} Dejar solucion salina hipertonica al 3% en infusion continua a maximo ${hypertonicRate} mL/h por bomba. Esta velocidad esta limitada para no superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas; revalorar con sodio en 2 horas y suspender/ajustar al alcanzar aumento de 4 a 6 mmol/L o mejoria neurologica.`
-    : `Dejar solucion salina hipertonica al 3% en infusion continua por bomba segun calculo/protocolo institucional, con sodio en 2 horas y ajuste inmediato segun respuesta. No superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas.`;
+    ? `Formula aplicada: cambio Na por litro = (Na infusion - Na serico) / (ACT + 1). ${formulaSummary} ${solutionPreparation.saline3} Dejar solucion salina hipertonica al 3% en infusion continua a maximo ${hypertonicRate} mL/h por bomba. Esta velocidad esta limitada para no superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas; revalorar con sodio en 2 horas y suspender/ajustar al alcanzar aumento de 4 a 6 mmol/L o mejoria neurologica.`
+    : `${solutionPreparation.saline3} Dejar solucion salina hipertonica al 3% en infusion continua por bomba segun calculo/protocolo institucional, con sodio en 2 horas y ajuste inmediato segun respuesta. No superar ${limits.max24h} mmol/L en 24 horas ni ${limits.max12h} mmol/L en 12 horas.`;
 
   if (volume === "hipovolemico") {
     return {
@@ -264,6 +271,7 @@ function hypernatremiaFluidPlan(patient, sodium, totalBodyWater, freeWaterDefici
   const rateText = ratePlan.rateMlH
     ? `Tasa maxima inicial sugerida de agua libre: ${ratePlan.rateMlH} mL/h por la via elegida, calculada para no superar descenso de ${ratePlan.maxDecrease24h} mmol/L en 24 horas, ${ratePlan.maxDecrease12h} mmol/L en 12 horas, ${ratePlan.maxDecrease8h} mmol/L en 8 horas ni ${ratePlan.maxDecrease4h} mmol/L en 4 horas. Con ${bestSolution.name}, volumen aproximado: ${solutionVolume12hMl ?? "no calculable"} cc en 12 horas y ${solutionVolume24hMl ?? "no calculable"} cc en 24 horas. Meta aproximada: Na ${ratePlan.target24h} mmol/L a 24 horas y Na ${ratePlan.target12h} mmol/L a 12 horas, ajustando segun control real.`
     : "Si no hay peso/ACT o los datos son incompletos, calcular manualmente la tasa inicial y ajustar con sodio seriado; no superar cambio de 8 mmol/L en 24 horas, 5 mmol/L en 12 horas, 3 mmol/L en 8 horas ni 1.5 mmol/L en 4 horas.";
+  const preparationText = bestSolution.name.includes("0.45%") ? `${solutionPreparation.saline045} ` : "";
   return {
     continuousFluid: initialFluid,
     continuousRate: ratePlan.rateMlH,
@@ -281,7 +289,7 @@ function hypernatremiaFluidPlan(patient, sodium, totalBodyWater, freeWaterDefici
     target12h: ratePlan.target12h,
     water24hLiters: ratePlan.water24hLiters,
     water12hLiters: ratePlan.water12hLiters,
-    text: `Deficit estimado de agua libre hasta Na 140: ${freeWaterDeficit ?? "no calculable"} L. Mejor solucion sugerida: ${bestSolution.name}; ${bestSolution.note}. Volumen total aproximado para corregir deficit hasta Na 140: ${selectedSolutionVolumeMl ?? "no calculable"} cc. ${rateText} Elegir via de reposicion segun estado neurologico, tolerancia enteral, volemia, glicemia y funcion renal. Si hay choque o hipovolemia marcada, estabilizar perfusion inicialmente con solucion salina 0.9% y luego pasar a reposicion de agua libre/solucion 0.45%.`,
+    text: `Deficit estimado de agua libre hasta Na 140: ${freeWaterDeficit ?? "no calculable"} L. Mejor solucion sugerida: ${bestSolution.name}; ${bestSolution.note}. ${preparationText}Volumen total aproximado para corregir deficit hasta Na 140: ${selectedSolutionVolumeMl ?? "no calculable"} cc. ${rateText} Elegir via de reposicion segun estado neurologico, tolerancia enteral, volemia, glicemia y funcion renal. Si hay choque o hipovolemia marcada, estabilizar perfusion inicialmente con solucion salina 0.9% y luego pasar a reposicion de agua libre/solucion 0.45%. ${solutionPreparation.saline045}`,
     controls: ["Sodio cada 4 a 6 horas durante fase activa", "Balance hidrico y diuresis", "Ajustar tasa segun descenso real", "No superar cambio de 1.5 mmol/L en 4 horas, 3 mmol/L en 8 horas, 5 mmol/L en 12 horas ni 8 mmol/L en 24 horas"]
   };
 }
@@ -349,18 +357,19 @@ function ecgRecommendation(disorder) {
 
 function potassiumFluidPlan(patient, classification, safety) {
   if (classification.disorder.includes("Hipokalemia")) {
-    const availableInfusions = "KCl 0.02 mEq/mL en DAD 5% x 500 mL periferico; KCl 0.04 mEq/mL x 250 o 500 mL en SSN 0.9% periferico; KCl 0.2 mEq/mL x 100 mL en agua destilada central; KCl 0.2 mEq/mL x 100 mL en SSN 0.9% central";
+    const availableInfusions = "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%; KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%";
     const centralForModerateSevere = safety.potassium >= 2 && safety.potassium < 3;
     const central = centralForModerateSevere || ((safety.centralAccess || safety.potassium < 2) && classification.severity === "severa");
     const midline = patient.venousAccess === "linea_media";
-    const concentrationMeqMl = central ? 0.2 : 0.04;
+    const concentrationMeqMl = central ? 0.16 : 0.1;
     const maxInfusionRateMlH = central ? 100 : (midline ? 70 : 50);
     const infusionRateMlH = centralForModerateSevere ? 50 : maxInfusionRateMlH;
     const potassiumRateMeqH = Math.round(infusionRateMlH * concentrationMeqMl * 10) / 10;
     const potassiumInfusionType = central ? "infusion de potasio central" : "infusion de potasio periferica";
     const selectedInfusion = central
-      ? "KCl 0.2 mEq/mL x 100 mL en SSN 0.9% o agua destilada"
-      : "KCl 0.04 mEq/mL en SSN 0.9% x 250 o 500 mL";
+      ? "KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%"
+      : "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%";
+    const preparationText = central ? solutionPreparation.potassiumCentral : solutionPreparation.potassiumPeripheral;
     return {
       continuousFluid: potassiumInfusionType,
       continuousRate: infusionRateMlH,
@@ -369,7 +378,7 @@ function potassiumFluidPlan(patient, classification, safety) {
       infusionRateMlH,
       maxInfusionRateMlH,
       availableInfusions,
-      text: `Liquidos continuos: usar ${potassiumInfusionType} a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba. No superar 70 mL/h por via periferica con cateter de linea media. No superar 100 mL/h por via central. Ajustar o suspender al recibir control de potasio.`,
+      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
       controls: [
         ...(centralForModerateSevere ? ["Solicitar o confirmar via central para potasio entre 2.0 y 2.9 mmol/L"] : []),
         "Verificar concentracion final de KCl y via venosa",
@@ -645,7 +654,7 @@ function potassiumSafety(patient, lab, calculations, classification) {
     requiresCardiacMonitoring: monitor || k < 2 || k > 6.5,
     peripheralMaxInfusionRateMlH: midlineAccess ? 70 : 50,
     centralMaxInfusionRateMlH: 100,
-    peripheralMaxKclRate: midlineAccess ? 2.8 : 2,
+    peripheralMaxKclRate: 8,
     centralMaxKclRate: 20
   };
 }
