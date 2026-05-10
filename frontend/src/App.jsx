@@ -595,7 +595,6 @@ function MainApp({ session, onLogout }) {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             {theme === "dark" ? "Claro" : "Oscuro"}
           </button>
-          <button className="btn ghost" onClick={resetForms}><Plus size={18} /> Nuevo</button>
           <button className="btn danger" onClick={onLogout}><LogOut size={18} /> Salir</button>
         </div>
       </header>
