@@ -1757,6 +1757,19 @@ function Num({ label, value, onChange }) {
   return <label>{label}<input type="number" step="0.01" value={value || ""} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
+function activeClinicalOrders(evaluationOrders = [], orderHistory = []) {
+  const activeHistory = (orderHistory || []).filter((order) => order && !["done", "not_done"].includes(order.status));
+  const merged = [...(evaluationOrders || []), ...activeHistory];
+  const seen = new Set();
+  return merged.filter((order) => {
+    if (!order) return false;
+    const key = disorderKey(order.disorder || order.electrolyte || order._id || "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, onDeleteLab, settings }) {
   if (!evaluation) {
     return (
@@ -1773,9 +1786,10 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
     );
   }
   const calc = evaluation.calculations || {};
-  const orders = evaluation.orders || [];
+  const orders = activeClinicalOrders(evaluation.orders || [], orderHistory || []);
+  const evaluationWithActiveOrders = { ...evaluation, orders };
   function downloadSummary() {
-    const text = buildClinicalSummary(evaluation, patientDetails);
+    const text = buildClinicalSummary(evaluationWithActiveOrders, patientDetails);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1858,7 +1872,7 @@ function RepositionSummary({ orders }) {
       <div className="section-heading-row">
         <div>
           <h2>Reposiciones sugeridas</h2>
-          <p>{orders.length} plan(es) activo(s) segun los trastornos detectados.</p>
+          <p>{orders.length} reposición(es) activa(s) para los trastornos hidroelectrolíticos actuales.</p>
         </div>
         <span className="badge">{orders.length}</span>
       </div>
