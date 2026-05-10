@@ -1721,7 +1721,6 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
     );
   }
   const calc = evaluation.calculations || {};
-  const classifications = evaluation.classifications || [];
   const orders = evaluation.orders || [];
   function downloadSummary() {
     const text = buildClinicalSummary(evaluation, patientDetails);
@@ -1742,17 +1741,6 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
     <div className="result-panel">
       {(evaluation.globalAlerts || []).map((alert, idx) => <div className="alert red" key={idx}>{alert}</div>)}
       <FollowUpPanel followUp={evaluation.followUp} />
-      <section className="result-header">
-        <div>
-          <h2>Resultado clínico</h2>
-          <p>{classifications.length ? `${classifications.length} trastorno(s) detectado(s) con los datos disponibles.` : "No se detectaron trastornos con los datos ingresados."}</p>
-        </div>
-        <div className="result-actions">
-          <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
-          <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
-        </div>
-      </section>
-
       <RepositionSummary orders={orders} />
 
       <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits">
@@ -1770,24 +1758,14 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         </div>
       </FormSection>
 
-      <FormSection title="Trastornos detectados" summary={`${classifications.length} hallazgo(s)`} open>
-        {classifications.length === 0 && <p>No se detectaron trastornos con los datos ingresados.</p>}
-        <div className="classification-grid">
-          {classifications.map((item, idx) => (
-            <div className="classification-card" key={idx}>
-              <span className={`badge ${item.priority}`}>{item.priority}</span>
-              <strong>{item.disorder}</strong>
-              <small>Severidad: {item.severity || "no definida"}</small>
-              {item.note && <small>{item.note}</small>}
-            </div>
-          ))}
-        </div>
-      </FormSection>
-
       <section className="clinical-section">
         <div>
           <h2>Órdenes médicas sugeridas</h2>
-          <p>Cada orden conserva auditoría de copia, edición, recálculo y estado final.</p>
+          <p>Cada reposición conserva auditoría de copia, edición, recálculo y estado final.</p>
+          <div className="result-actions compact">
+            <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
+            <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
+          </div>
         </div>
         {orders.map((order, idx) => (
           <OrderCard
@@ -2361,8 +2339,7 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
     <article className="card order-card">
       <div className="order-card-header">
         <div>
-          {total > 1 && <small className="order-index">Reposicion {index + 1} de {total}</small>}
-          <h3>{order.disorder}</h3>
+          <small className="order-index">{total > 1 ? `Reposición ${index + 1} de ${total}` : "Reposición sugerida"}</small>
           {order.status && <span className="badge">{statusLabel(order.status)}</span>}
           <span className={`badge ${order.priority}`}>{order.severity} · {order.priority}</span>
         </div>
