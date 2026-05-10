@@ -493,27 +493,28 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .patient-electrolytes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fit, minmax(30px, max-content));
+  justify-content: start;
+  gap: 3px;
 }
 .patient-electrolyte {
   display: grid;
   gap: 0;
   justify-items: center;
-  padding: 4px 3px;
+  padding: 3px 4px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--surface);
   min-width: 0;
 }
 .patient-electrolyte small {
   color: var(--subtle);
-  font-size: 0.58rem;
+  font-size: 0.52rem;
   font-weight: 900;
 }
 .patient-electrolyte strong {
   color: var(--heading);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   line-height: 1;
 }
 .patient-electrolyte.altered {
