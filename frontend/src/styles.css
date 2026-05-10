@@ -314,6 +314,68 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 .check-section .check-grid {
   padding: 0 10px 10px;
 }
+.form-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.form-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.form-section > summary::-webkit-details-marker { display: none; }
+.form-section > summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.form-section > summary strong {
+  color: var(--heading);
+  font-size: 0.95rem;
+}
+.form-section > summary small {
+  color: var(--subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.form-section > summary svg {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  transition: transform 140ms ease;
+}
+.form-section[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.form-section[open] > summary svg {
+  transform: rotate(180deg);
+}
+.form-section-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.inline-check {
+  width: fit-content;
+}
+.quick-labs {
+  gap: 10px;
+}
+.quick-labs input {
+  min-height: 38px;
+}
 
 .patient-sidebar { display: grid; gap: 10px; }
 .patient-panel-toggle {
@@ -1048,14 +1110,35 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .solution-group {
   display: grid;
-  gap: 8px;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
-.solution-group h3 {
-  margin: 0;
+.solution-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.solution-group > summary::-webkit-details-marker {
+  display: none;
+}
+.solution-group > summary strong {
+  color: var(--heading);
+}
+.solution-group[open] > summary {
+  border-bottom: 1px solid var(--border);
 }
 .solution-table {
   display: grid;
   gap: 8px;
+  padding: 10px;
 }
 .solution-row {
   display: grid;
@@ -1273,6 +1356,43 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .check-section summary small { font-size: 0.74rem; }
   .check-section summary b { min-width: 24px; height: 24px; }
   .check-section .check-grid { padding: 0 8px 8px; }
+  .form-section > summary,
+  .solution-group > summary {
+    padding: 8px 10px;
+  }
+  .form-section > summary strong,
+  .solution-group > summary strong {
+    font-size: 0.88rem;
+  }
+  .form-section > summary small {
+    font-size: 0.74rem;
+  }
+  .form-section-body {
+    padding: 9px;
+    gap: 9px;
+  }
+  .form-actions .btn {
+    flex: 1 1 150px;
+  }
+  .quick-labs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .quick-labs label {
+    font-size: 0.78rem;
+    gap: 4px;
+  }
+  .quick-labs input {
+    min-height: 36px;
+    padding: 7px 8px;
+  }
+  .solution-table {
+    padding: 8px;
+  }
+  .solution-row {
+    padding: 8px;
+    gap: 6px;
+  }
   .check-item {
     padding: 7px 8px;
     gap: 6px;

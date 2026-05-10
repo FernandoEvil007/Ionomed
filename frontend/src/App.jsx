@@ -18,9 +18,12 @@ const comorbidities = [
   ["hemodialisis", "Hemodiálisis"],
   ["oliguria", "Oliguria"],
   ["anuria", "Anuria"],
+  ["hipertension_arterial", "Hipertensión arterial"],
   ["falla_cardiaca", "Falla cardiaca"],
   ["arritmias", "Arritmias"],
   ["qt_prolongado", "QT prolongado"],
+  ["hipotiroidismo", "Hipotiroidismo"],
+  ["hipertiroidismo", "Hipertiroidismo"],
   ["alto_riesgo_sobrecarga", "Alto riesgo de sobrecarga"],
   ["cirrosis", "Cirrosis"],
   ["alcoholismo", "Alcoholismo"],
@@ -931,8 +934,11 @@ function SolutionsGuide({ evaluation }) {
       </div>
       {matchingGroups.length === 0 && <div className="alert">No hay preparaciones especificas configuradas para los trastornos detectados en este caso.</div>}
       {matchingGroups.map((group) => (
-        <div className="solution-group" key={group.title}>
-          <h3>{group.title}</h3>
+        <details className="solution-group" key={group.title} open={matchingGroups.length === 1}>
+          <summary>
+            <strong>{group.title}</strong>
+            <span className="badge">{group.rows.length} opcion(es)</span>
+          </summary>
           <div className="solution-table">
             {group.rows.map((row, idx) => (
               <article className="solution-row" key={`${group.title}-${idx}`}>
@@ -946,7 +952,7 @@ function SolutionsGuide({ evaluation }) {
               </article>
             ))}
           </div>
-        </div>
+        </details>
       ))}
     </section>
   );
@@ -1079,6 +1085,7 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
 
   return (
     <form className="grid" onSubmit={onSubmit}>
+      <FormSection title="1. Identificación" summary="Datos mínimos para ubicar al paciente" open>
       <div className="grid two">
         <label>Nombre o código del paciente<input value={form.nameOrCode || ""} onChange={(e) => update("nameOrCode", e.target.value)} required /></label>
         <label>Identificación local<input value={form.localIdentifier || ""} onChange={(e) => update("localIdentifier", e.target.value)} /></label>
@@ -1093,6 +1100,9 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
         </label>
         <label>Peso kg <small>opcional, habilita ACT y deficits</small><input type="number" step="0.1" value={form.weightKg || ""} onChange={(e) => update("weightKg", e.target.value)} /></label>
       </div>
+      </FormSection>
+
+      <FormSection title="2. Contexto clínico" summary="Área, volemia, acceso y diuresis" open>
       <div className="grid three">
         <label>Área clínica
           <select value={form.clinicalArea} onChange={(e) => update("clinicalArea", e.target.value)}>
@@ -1122,14 +1132,17 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
       </div>
       <label>Ubicación<input value={form.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="UCI, piso, urgencias..." /></label>
       <label>Diuresis mL/kg/h<input type="number" step="0.01" value={form.urineOutputMlKgH || ""} onChange={(e) => update("urineOutputMlKgH", e.target.value)} /></label>
-      <label className="check-item"><input type="checkbox" checked={form.oralRouteAvailable} onChange={(e) => update("oralRouteAvailable", e.target.checked)} /> Vía oral disponible</label>
+      <label className="check-item inline-check"><input type="checkbox" checked={form.oralRouteAvailable} onChange={(e) => update("oralRouteAvailable", e.target.checked)} /> Vía oral disponible</label>
+      </FormSection>
 
+      <FormSection title="3. Riesgos clínicos" summary="Toca cada grupo solo si aplica">
       <Checklist title="Comorbilidades" items={comorbidities} selected={form.comorbidities || []} onToggle={(value) => toggle("comorbidities", value)} />
       <Checklist title="Medicamentos relevantes" items={medications} selected={form.medications || []} onToggle={(value) => toggle("medications", value)} />
       <Checklist title="Signos neurológicos" items={neuroSymptoms} selected={form.neurologicSymptoms || []} onToggle={(value) => toggle("neurologicSymptoms", value)} />
       <Checklist title="Síntomas cardiovasculares / ECG" items={cardioSymptoms} selected={form.cardiovascularSymptoms || []} onToggle={(value) => toggle("cardiovascularSymptoms", value)} />
+      </FormSection>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div className="form-actions">
         <button className="btn primary" type="submit"><Save size={18} /> Crear paciente</button>
         <button className="btn secondary" type="button" onClick={onEvaluate}><Stethoscope size={18} /> Evaluar sin guardar</button>
       </div>
@@ -1165,6 +1178,21 @@ function Checklist({ title, items, selected, onToggle }) {
   );
 }
 
+function FormSection({ title, summary, children, open = false }) {
+  return (
+    <details className="form-section" open={open}>
+      <summary>
+        <span>
+          <strong>{title}</strong>
+          {summary && <small>{summary}</small>}
+        </span>
+        <ChevronDown size={16} />
+      </summary>
+      <div className="form-section-body">{children}</div>
+    </details>
+  );
+}
+
 function LabForm({ form, setForm, onSubmit, selectedPatient }) {
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   return (
@@ -1172,28 +1200,36 @@ function LabForm({ form, setForm, onSubmit, selectedPatient }) {
       <div className="alert">
         {selectedPatient ? `Paciente seleccionado: ${selectedPatient.nameOrCode}` : "Puedes ingresar laboratorios luego de crear o seleccionar un paciente."}
       </div>
-      <label>Fecha y hora del laboratorio<input type="datetime-local" value={form.collectedAt} onChange={(e) => update("collectedAt", e.target.value)} /></label>
-      <div className="grid three">
-        <Num label="Sodio mmol/L" value={form.sodium} onChange={(v) => update("sodium", v)} />
-        <Num label="Potasio mmol/L" value={form.potassium} onChange={(v) => update("potassium", v)} />
-        <Num label="Cloro mmol/L" value={form.chloride} onChange={(v) => update("chloride", v)} />
-        <Num label="Magnesio mg/dL" value={form.magnesium} onChange={(v) => update("magnesium", v)} />
-        <Num label="Fósforo mg/dL" value={form.phosphorus} onChange={(v) => update("phosphorus", v)} />
-        <Num label="Calcio total mg/dL" value={form.calciumTotal} onChange={(v) => update("calciumTotal", v)} />
-        <Num label="Calcio ionizado" value={form.calciumIonized} onChange={(v) => update("calciumIonized", v)} />
-        <Num label="Albúmina g/dL" value={form.albumin} onChange={(v) => update("albumin", v)} />
-        <Num label="Glucosa mg/dL" value={form.glucose} onChange={(v) => update("glucose", v)} />
-        <Num label="Creatinina mg/dL" value={form.creatinine} onChange={(v) => update("creatinine", v)} />
-        <Num label="BUN mg/dL" value={form.bun} onChange={(v) => update("bun", v)} />
-        <Num label="pH" value={form.ph} onChange={(v) => update("ph", v)} />
-        <Num label="Bicarbonato mmol/L" value={form.bicarbonate} onChange={(v) => update("bicarbonate", v)} />
-        <Num label="Osmolaridad sérica" value={form.serumOsmolality} onChange={(v) => update("serumOsmolality", v)} />
-        <Num label="Osmolaridad urinaria" value={form.urineOsmolality} onChange={(v) => update("urineOsmolality", v)} />
-        <Num label="Sodio urinario" value={form.urineSodium} onChange={(v) => update("urineSodium", v)} />
-        <Num label="Potasio urinario" value={form.urinePotassium} onChange={(v) => update("urinePotassium", v)} />
+      <FormSection title="1. Electrolitos básicos" summary="Valores principales para clasificar y ordenar" open>
+        <label>Fecha y hora del laboratorio<input type="datetime-local" value={form.collectedAt} onChange={(e) => update("collectedAt", e.target.value)} /></label>
+        <div className="grid three quick-labs">
+          <Num label="Sodio mmol/L" value={form.sodium} onChange={(v) => update("sodium", v)} />
+          <Num label="Potasio mmol/L" value={form.potassium} onChange={(v) => update("potassium", v)} />
+          <Num label="Cloro mmol/L" value={form.chloride} onChange={(v) => update("chloride", v)} />
+          <Num label="Magnesio mg/dL" value={form.magnesium} onChange={(v) => update("magnesium", v)} />
+          <Num label="Fósforo mg/dL" value={form.phosphorus} onChange={(v) => update("phosphorus", v)} />
+          <Num label="Calcio total mg/dL" value={form.calciumTotal} onChange={(v) => update("calciumTotal", v)} />
+        </div>
+      </FormSection>
+      <FormSection title="2. Datos complementarios" summary="Renal, ácido-base, osmolaridad y orina">
+        <div className="grid three quick-labs">
+          <Num label="Calcio ionizado" value={form.calciumIonized} onChange={(v) => update("calciumIonized", v)} />
+          <Num label="Albúmina g/dL" value={form.albumin} onChange={(v) => update("albumin", v)} />
+          <Num label="Glucosa mg/dL" value={form.glucose} onChange={(v) => update("glucose", v)} />
+          <Num label="Creatinina mg/dL" value={form.creatinine} onChange={(v) => update("creatinine", v)} />
+          <Num label="BUN mg/dL" value={form.bun} onChange={(v) => update("bun", v)} />
+          <Num label="pH" value={form.ph} onChange={(v) => update("ph", v)} />
+          <Num label="Bicarbonato mmol/L" value={form.bicarbonate} onChange={(v) => update("bicarbonate", v)} />
+          <Num label="Osmolaridad sérica" value={form.serumOsmolality} onChange={(v) => update("serumOsmolality", v)} />
+          <Num label="Osmolaridad urinaria" value={form.urineOsmolality} onChange={(v) => update("urineOsmolality", v)} />
+          <Num label="Sodio urinario" value={form.urineSodium} onChange={(v) => update("urineSodium", v)} />
+          <Num label="Potasio urinario" value={form.urinePotassium} onChange={(v) => update("urinePotassium", v)} />
+        </div>
+        <label>Notas<textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} /></label>
+      </FormSection>
+      <div className="form-actions">
+        <button className="btn primary" type="submit"><Activity size={18} /> Guardar y evaluar</button>
       </div>
-      <label>Notas<textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} /></label>
-      <button className="btn primary" type="submit"><Activity size={18} /> Guardar laboratorio y evaluar</button>
     </form>
   );
 }
@@ -1239,11 +1275,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
 
       <ClinicalWorkflow classifications={classifications} orders={orders} labs={patientDetails?.labs || []} />
 
-      <section className="clinical-section">
-        <div>
-          <h2>Cálculos automáticos</h2>
-          <p>Los cálculos aparecen solo cuando los datos necesarios están disponibles.</p>
-        </div>
+      <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits" open>
         <div className="metrics">
           <Metric label="TFG CKD-EPI" value={display(calc.egfr, "mL/min/1.73m²")} />
           <Metric label="Cockcroft-Gault" value={display(calc.cockcroftGault, "mL/min")} />
@@ -1256,10 +1288,9 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
           <Metric label="Deficit Na estimado" value={display(calc.sodiumDeficitMeq, "mEq")} />
           <Metric label="Deficit K estimado" value={display(calc.potassiumDeficitMeq, "mEq")} />
         </div>
-      </section>
+      </FormSection>
 
-      <section className="clinical-section">
-        <h2>Trastornos detectados</h2>
+      <FormSection title="Trastornos detectados" summary={`${classifications.length} hallazgo(s)`} open>
         {classifications.length === 0 && <p>No se detectaron trastornos con los datos ingresados.</p>}
         <div className="classification-grid">
           {classifications.map((item, idx) => (
@@ -1270,7 +1301,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
             </div>
           ))}
         </div>
-      </section>
+      </FormSection>
 
       <section className="clinical-section">
         <div>
@@ -1289,11 +1320,10 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
 
       <ClinicalValidationPanel />
 
-      <section className="clinical-section">
-        <h2>Historial del paciente</h2>
+      <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría">
         <LabTrendTable labs={patientDetails?.labs || []} />
         <Timeline labs={patientDetails?.labs || []} orders={orderHistory || []} />
-      </section>
+      </FormSection>
     </div>
   );
 }
@@ -1333,11 +1363,7 @@ function ClinicalValidationPanel() {
     ["Hipercalcemia maligna", "Hidratación, antirresortivo según función renal y oncología."]
   ];
   return (
-    <section className="clinical-section validation-panel">
-      <div>
-        <h2>Validación clínica interna</h2>
-        <p>Escenarios críticos que deben seguir funcionando en cada ajuste del motor.</p>
-      </div>
+    <FormSection title="Validación clínica interna" summary="Escenarios críticos del motor">
       <div className="validation-grid">
         {cases.map(([title, detail]) => (
           <div className="validation-item" key={title}>
@@ -1346,7 +1372,7 @@ function ClinicalValidationPanel() {
           </div>
         ))}
       </div>
-    </section>
+    </FormSection>
   );
 }
 
