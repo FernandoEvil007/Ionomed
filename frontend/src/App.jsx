@@ -1996,12 +1996,19 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
     };
   } else if (disorder.includes("hipocalcemia")) {
     options = [...electrolyteSolutionOptions.hypocalcemia, ...institutionalOptions(settings, disorder, selectedRoute)];
+    const severeHypocalcemia = disorder.includes("severa");
     calculator = (solution) => [
       `Paciente con ${String(order.disorder || "hipocalcemia").toLowerCase()} (Ca ${safety.calcium ?? safety.calciumCorrected ?? safety.calciumTotal ?? "no disponible"} mg/dL).`,
       `Solucion escogida: ${solution.label}.`,
-      "Administrar IV lento bajo monitorizacion si hay sintomas importantes, QT prolongado o hipocalcemia severa.",
-      "Solicitar calcio ionizado o corregido, magnesio, fosforo y creatinina de control."
-    ];
+      severeHypocalcemia ? "Monitorizacion cardiaca continua. EKG inicial y control segun evolucion clinica/QTc." : "Administrar IV lento bajo monitorizacion si hay sintomas importantes, QT prolongado o hipocalcemia severa.",
+      severeHypocalcemia ? "Solicitar calcio ionico urgente, calcio total, albumina, magnesio, fosforo, potasio, sodio, creatinina, BUN, PTH intacta y 25 OH vitamina D." : "Solicitar calcio ionizado o corregido, magnesio, fosforo y creatinina de control.",
+      severeHypocalcemia ? "Gluconato de calcio 10% 20 mL IV diluido en 100 mL de DAD 5% o SSN 0.9%, pasar en 10 minutos con monitorizacion cardiaca. Repetir si persisten sintomas, QT prolongado o calcio ionico criticamente bajo." : "",
+      severeHypocalcemia ? "Luego gluconato de calcio 10% 100 mL en 1000 mL de SSN 0.9%, iniciar a 50 mL/h IV y titular hasta 100 mL/h segun calcio ionico, QTc y sintomas." : "",
+      severeHypocalcemia ? "Control de calcio ionico cada 4-6 horas inicialmente; en paciente critico cada 2-4 horas." : "",
+      severeHypocalcemia ? "Si magnesio bajo: sulfato de magnesio 2 g IV en 100 mL SSN 0.9% en 1 hora. Si deficit severo o persistente, continuar 4-8 g IV en 12-24 horas, ajustado a funcion renal." : "",
+      severeHypocalcemia ? "Cuando tolere via oral: carbonato de calcio 1250 mg VO cada 8 horas con comidas. Calcitriol 0.25 mcg VO cada 12 horas, ajustar segun calcio, fosforo y funcion renal. Si deficit de vitamina D: colecalciferol 50.000 UI VO semanal por 6-8 semanas, luego mantenimiento." : "",
+      severeHypocalcemia ? "No administrar calcio por la misma linea con bicarbonato o fosfato. Vigilar hipercalcemia de rebote, especialmente si se usa calcitriol, altas dosis de calcio oral o si mejora la funcion renal." : ""
+    ].filter(Boolean);
   } else if (disorder.includes("hipercalcemia")) {
     options = [...electrolyteSolutionOptions.hypercalcemia, ...institutionalOptions(settings, disorder, selectedRoute)];
     defaultRate = Number(safety.hydrationRate ?? safety.continuousRate ?? 150);

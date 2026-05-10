@@ -489,10 +489,14 @@ function calciumFluidPlan(patient, classification, safety) {
   }
 
   return {
-    continuousFluid: "Gluconato de calcio IV si sintomatica; calcio oral/infusion segun control",
-    continuousRate: null,
-    text: "Liquidos continuos: si hay sintomas importantes, administrar gluconato de calcio IV lento y considerar infusion de calcio segun protocolo si recurren sintomas o persiste calcio bajo. Usar dextrosa al 5% o solucion salina 0.9% como diluyente segun protocolo local y compatibilidad; corregir magnesio en paralelo.",
-    controls: ["Vigilar extravasacion si calcio IV", "Repetir calcio ionizado/corregido antes de continuar infusion"]
+    continuousFluid: "Gluconato de calcio 10% infusion en SSN 0.9%",
+    continuousRate: classification.severity === "severa" ? 50 : null,
+    text: classification.severity === "severa"
+      ? "Calcio IV: gluconato de calcio 10% 20 mL IV diluido en 100 mL de DAD 5% o SSN 0.9%, pasar en 10 minutos con monitorizacion cardiaca. Repetir si persisten sintomas, QT prolongado o calcio ionico criticamente bajo. Luego gluconato de calcio 10% 100 mL en 1000 mL de SSN 0.9%, iniciar a 50 mL/h IV y titular hasta 100 mL/h segun calcio ionico, QTc y sintomas."
+      : "Liquidos continuos: si hay sintomas importantes, administrar gluconato de calcio IV lento y considerar infusion de calcio segun protocolo si recurren sintomas o persiste calcio bajo. Usar dextrosa al 5% o solucion salina 0.9% como diluyente segun protocolo local y compatibilidad; corregir magnesio en paralelo.",
+    controls: classification.severity === "severa"
+      ? ["Control de calcio ionico cada 4 a 6 horas inicialmente", "En paciente critico controlar calcio ionico cada 2 a 4 horas", "No administrar calcio por la misma linea con bicarbonato o fosfato"]
+      : ["Vigilar extravasacion si calcio IV", "Repetir calcio ionizado/corregido antes de continuar infusion"]
   };
 }
 
@@ -949,6 +953,23 @@ function calciumOrder(patient, lab, calculations, classification) {
   const fluidPlan = calciumFluidPlan(patient, classification, safety);
   const ecg = ecgRecommendation(classification.disorder);
   const severeHypocalcemia = classification.disorder.includes("Hipocalcemia") && classification.severity === "severa";
+  if (severeHypocalcemia) {
+    const monitoring = "Monitorizacion: monitorizacion cardiaca continua, EKG inicial y control segun evolucion clinica/QTc.";
+    const urgentLabs = "Laboratorios urgentes: calcio ionico urgente, calcio total, albumina, magnesio, fosforo, potasio, sodio, creatinina, BUN, PTH intacta y 25 OH vitamina D.";
+    const magnesium = "Si magnesio bajo: sulfato de magnesio 2 g IV en 100 mL SSN 0.9% en 1 hora. Si deficit severo o persistente, continuar 4-8 g IV en 12-24 horas, ajustado a funcion renal.";
+    const oral = "Cuando tolere via oral: carbonato de calcio 1250 mg VO cada 8 horas con comidas. Calcitriol 0.25 mcg VO cada 12 horas, ajustar segun calcio, fosforo y funcion renal. Si deficit de vitamina D: colecalciferol 50.000 UI VO semanal por 6-8 semanas, luego mantenimiento.";
+    const compatibility = "No administrar calcio por la misma linea con bicarbonato o fosfato.";
+    const rebound = "Vigilar signos de hipercalcemia de rebote, especialmente si se usa calcitriol, altas dosis de calcio oral o si mejora la funcion renal.";
+    return makeOrder({
+      ...classification,
+      alerts,
+      safety: { ...safety, ...infusionSafety(fluidPlan), calciumBolusGluconate10PercentMl: 20, calciumBolusDiluentMl: 100, calciumInfusionGluconate10PercentMl: 100, calciumInfusionDiluentMl: 1000, calciumInfusionStartRateMlH: 50, calciumInfusionMaxRateMlH: 100 },
+      missingData,
+      controls: ["Calcio ionico cada 4 a 6 horas inicialmente", "Paciente critico: calcio ionico cada 2 a 4 horas", "EKG inicial y control segun QTc/evolucion", "Magnesio, fosforo, potasio, sodio, creatinina, BUN, PTH intacta y 25 OH vitamina D", "Vigilar hipercalcemia de rebote", ...fluidPlan.controls],
+      text: `Paciente con hipocalcemia severa (Ca ${calcium} mg/dL). ${monitoring} ${urgentLabs} ${fluidPlan.text} ${magnesium} ${oral} ${compatibility} ${rebound}`,
+      justification: "La hipocalcemia severa puede producir arritmias, QT prolongado, convulsiones o tetania y requiere calcio IV inmediato, monitorizacion y correccion de magnesio/vitamina D."
+    });
+  }
   return makeOrder({
     ...classification,
     alerts,
