@@ -473,11 +473,18 @@ function phosphorusFluidPlan(patient, classification, safety) {
 
 function calciumFluidPlan(patient, classification, safety) {
   if (classification.disorder.includes("Hipercalcemia")) {
+    const weight = safety.weightKg;
+    const bolusText = weight
+      ? `SSN 0.9% bolo ${safety.salineBolusMinMl}-${safety.salineBolusMaxMl} cc IV si hipovolemia/deshidratacion`
+      : "SSN 0.9% bolo 10-20 cc/kg IV si hipovolemia/deshidratacion";
+    const rateText = weight
+      ? `luego SSN 0.9% a ${safety.salineRateMinMlH}-${safety.salineRateMaxMlH} cc/h IV, sugerido ${safety.hydrationRate} cc/h`
+      : `luego SSN 0.9% a 2-4 cc/kg/h IV, sugerido ${safety.hydrationRate} cc/h`;
     return {
       continuousFluid: "Solucion salina 0.9%",
       continuousRate: safety.hydrationRate,
-      text: `Liquidos continuos: dejar solucion salina 0.9% a ${safety.hydrationRate} cc/h por bomba si el estado clinico lo permite, ajustando por volemia, diuresis, creatinina y congestion. Suspender calcio, vitamina D, tiazidas y soluciones con calcio. Si hay sobrecarga, anuria o falla renal avanzada, no forzar hidratacion y valorar nefrologia.`,
-      controls: ["Balance hidrico horario durante fase activa", "Reevaluar tasa de SSN en 6 horas"]
+      text: `Liquidos: ${bolusText}; ${rateText}, ajustar cada 4-6 horas segun volemia, creatinina, congestion y diuresis. Meta de diuresis 100-150 cc/hora. Si hay sobrecarga, anuria o falla renal avanzada, no forzar hidratacion y valorar nefrologia.`,
+      controls: ["Balance hidrico estricto y diuresis horaria", "Reevaluar tasa de SSN cada 4 a 6 horas", "Meta de diuresis 100-150 cc/hora"]
     };
   }
 
@@ -871,19 +878,30 @@ function calciumOrder(patient, lab, calculations, classification) {
   const overloadRisk = hasAny(patient.comorbidities || [], ["falla_cardiaca", "edema_pulmonar", "erc", "anuria", "oliguria", "alto_riesgo_sobrecarga"]);
   const malignantContext = hasAny(patient.comorbidities || [], ["cancer_activo", "cancer_metastasico", "mieloma_multiple", "linfoma", "leucemia", "metastasis_oseas", "hipercalcemia_maligna_previa"]);
   const calcium = number(lab.calciumIonized) || calculations.calciumCorrected || number(lab.calciumTotal);
+  const weightKg = number(patient.weightKg);
+  const salineBolusMinMl = weightKg ? Math.round(weightKg * 10) : null;
+  const salineBolusMaxMl = weightKg ? Math.round(weightKg * 20) : null;
+  const salineRateMinMlH = weightKg ? Math.round(weightKg * 2) : null;
+  const salineRateMaxMlH = weightKg ? Math.round(weightKg * 4) : null;
+  const suggestedHydrationRate = weightKg ? Math.round(weightKg * 3) : 150;
   const p = number(lab.phosphorus);
   const safety = {
     calcium,
     calciumCorrected: calculations.calciumCorrected,
     calciumIonized: number(lab.calciumIonized),
+    weightKg,
+    salineBolusMinMl,
+    salineBolusMaxMl,
+    salineRateMinMlH,
+    salineRateMaxMlH,
     phosphorus: p,
     magnesium: number(lab.magnesium),
     calciumPhosphorusProduct: calcium && p ? Math.round(calcium * p * 10) / 10 : null,
     overloadRisk,
     malignantContext,
     requiresEcg: true,
-    requiresCardiacMonitoring: classification.disorder.includes("Hipocalcemia") && classification.severity === "severa",
-    hydrationRate: overloadRisk ? 75 : 150,
+    requiresCardiacMonitoring: classification.severity === "severa" && (classification.disorder.includes("Hipocalcemia") || classification.disorder.includes("Hipercalcemia")),
+    hydrationRate: overloadRisk ? Math.min(75, suggestedHydrationRate) : suggestedHydrationRate,
     ...renalAndUrineSafety(patient, calculations)
   };
   const missingData = [];
@@ -897,22 +915,25 @@ function calciumOrder(patient, lab, calculations, classification) {
   if (safety.renalSevere || safety.anuria) alerts.push("Funcion renal reducida/anuria: ajustar hidratacion y considerar nefrologia.");
   if (safety.magnesium !== null && safety.magnesium < 1.6) alerts.push("Hipomagnesemia asociada: puede perpetuar hipocalcemia.");
 
-  if (classification.disorder.includes("Hipercalcemia maligna")) {
-    const rate = safety.hydrationRate;
+  if (classification.disorder.includes("Hipercalcemia") && (classification.severity === "severa" || classification.disorder.includes("maligna"))) {
     const fluidPlan = calciumFluidPlan(patient, classification, safety);
     const ecg = ecgRecommendation(classification.disorder);
+    const monitoring = "Monitorizacion: telemetria, EKG inicial, signos vitales, vigilancia neurologica, balance hidrico estricto, diuresis horaria y control de signos de sobrecarga.";
+    const antiresorptive = "Antiresortivo: acido zoledronico 4 mg IV dosis unica en 15-30 minutos si la funcion renal lo permite. Alternativa: pamidronato 60-90 mg IV dosis unica en 2-4 horas. Si malignidad, recurrencia, refractariedad o limitacion renal: denosumab 120 mg SC dias 1, 8, 15 y 29; luego cada 4 semanas.";
+    const furosemide = "Furosemida: no rutinaria. Usar solo si aparece sobrecarga posterior a hidratacion: furosemida 10-20 mg IV y titular segun respuesta.";
+    const labs = "Laboratorios de control: calcio corregido o ionico, creatinina, BUN, sodio, potasio, magnesio, fosforo y albumina cada 12-24 horas segun severidad.";
+    const etiology = "Estudio etiologico: PTH intacta. Si PTH esta suprimida, solicitar PTHrP, 25 OH vitamina D, 1,25 OH vitamina D, electroforesis/inmunofijacion y busqueda dirigida de malignidad.";
     return makeOrder({
       ...classification,
-      alerts: ["Hipercalcemia maligna: urgencia oncologica, considerar antiresortivo y calcitonina si severa/sintomatica.", ...alerts],
+      alerts: ["Hipercalcemia severa: requiere hidratacion, monitorizacion, antiresortivo y vigilancia renal/cardiovascular.", ...alerts],
       safety: { ...safety, ...infusionSafety(fluidPlan) },
       missingData,
-      controls: ["Calcio corregido o ionizado, creatinina, fosforo, magnesio, potasio y sodio en 6 horas", ecg, "Balance hidrico y signos de congestion", "Valorar nefrologia/oncologia", ...fluidPlan.controls],
-      text: `Paciente con ${classification.disorder.toLowerCase()} (Ca ${calcium} mg/dL). ${ecg} ${fluidPlan.text} Suspender calcio, vitamina D y tiazidas si aplica. Solicitar calcio corregido o ionizado, creatinina, fosforo, magnesio, potasio y sodio. Considerar denosumab o bisfosfonato IV segun funcion renal, exposicion previa y protocolo institucional. Si calcio corregido mayor de 14 mg/dL o hay sintomas neurologicos, considerar calcitonina transitoria. Valorar nefrologia si falla renal avanzada, anuria, sobrecarga o hipercalcemia refractaria.`,
-      justification: "La hipercalcemia maligna requiere hidratacion, terapia antiresortiva y vigilancia renal/cardiovascular."
+      controls: ["Calcio corregido o ionico, creatinina, BUN, sodio, potasio, magnesio, fosforo y albumina cada 12-24 horas", ecg, "Telemetria y signos vitales", "Balance hidrico estricto y diuresis horaria", "Vigilar signos de sobrecarga", "Valorar nefrologia/oncologia", ...fluidPlan.controls],
+      text: `Paciente con ${classification.disorder.toLowerCase()} (Ca ${calcium} mg/dL). ${monitoring} ${fluidPlan.text} ${antiresorptive} ${furosemide} ${labs} ${etiology} Suspender calcio, vitamina D, tiazidas y soluciones con calcio si aplica. Valorar nefrologia si falla renal avanzada, anuria, sobrecarga o hipercalcemia refractaria.`,
+      justification: "La hipercalcemia severa requiere hidratacion guiada por volemia/diuresis, terapia antiresortiva, busqueda etiologica y vigilancia renal/cardiovascular."
     });
   }
   if (classification.disorder.includes("Hipercalcemia")) {
-    const rate = safety.hydrationRate;
     const fluidPlan = calciumFluidPlan(patient, classification, safety);
     const ecg = ecgRecommendation(classification.disorder);
     return makeOrder({

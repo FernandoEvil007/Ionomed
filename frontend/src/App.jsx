@@ -2005,11 +2005,22 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
   } else if (disorder.includes("hipercalcemia")) {
     options = [...electrolyteSolutionOptions.hypercalcemia, ...institutionalOptions(settings, disorder, selectedRoute)];
     defaultRate = Number(safety.hydrationRate ?? safety.continuousRate ?? 150);
+    const severeHypercalcemia = disorder.includes("severa") || disorder.includes("maligna");
+    const bolusText = safety.salineBolusMinMl && safety.salineBolusMaxMl
+      ? `Bolo si hipovolemia/deshidratacion: ${safety.salineBolusMinMl}-${safety.salineBolusMaxMl} cc IV.`
+      : "Bolo si hipovolemia/deshidratacion: 10-20 cc/kg IV.";
+    const rateRange = safety.salineRateMinMlH && safety.salineRateMaxMlH
+      ? `${safety.salineRateMinMlH}-${safety.salineRateMaxMlH} cc/h`
+      : "2-4 cc/kg/h";
     calculator = (solution) => [
       `Paciente con ${String(order.disorder || "hipercalcemia").toLowerCase()} (Ca ${safety.calcium ?? safety.calciumCorrected ?? safety.calciumTotal ?? "no disponible"} mg/dL).`,
       `Solucion escogida: ${solution.label}.`,
-      `Pasar a ${defaultRate} cc/h por bomba si el estado clinico lo permite.`,
-      "Ajustar por volemia, diuresis, creatinina y signos de congestion. Suspender aportes de calcio/vitamina D si aplica."
+      severeHypercalcemia ? "Monitorizacion: telemetria, EKG inicial, signos vitales, vigilancia neurologica, balance hidrico estricto, diuresis horaria y signos de sobrecarga." : "Monitorizar signos vitales, balance hidrico y funcion renal.",
+      `${bolusText} Luego pasar SSN 0.9% a ${rateRange}, sugerido ${defaultRate} cc/h, ajustar cada 4-6 horas. Meta de diuresis 100-150 cc/hora.`,
+      severeHypercalcemia ? "Antiresortivo: acido zoledronico 4 mg IV dosis unica en 15-30 minutos si funcion renal lo permite; alternativa pamidronato 60-90 mg IV en 2-4 horas; si malignidad, recurrencia, refractariedad o limitacion renal, denosumab 120 mg SC dias 1, 8, 15 y 29, luego cada 4 semanas." : "Definir antiresortivo segun severidad, etiologia y funcion renal.",
+      "Furosemida no rutinaria: usar solo si sobrecarga posterior a hidratacion, 10-20 mg IV y titular segun respuesta.",
+      "Control: calcio corregido o ionico, creatinina, BUN, sodio, potasio, magnesio, fosforo y albumina cada 12-24 horas segun severidad.",
+      "Estudio etiologico: PTH intacta; si PTH suprimida solicitar PTHrP, 25 OH vitamina D, 1,25 OH vitamina D, electroforesis/inmunofijacion y busqueda dirigida de malignidad. Suspender calcio, vitamina D y tiazidas si aplica."
     ];
   }
 
