@@ -453,7 +453,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 5px;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -530,23 +530,25 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .patient-disorders {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(auto-fit, minmax(76px, max-content));
+  justify-content: start;
+  gap: 4px;
 }
 .patient-disorder {
   display: grid;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
-  padding: 7px 8px;
+  max-width: 104px;
+  padding: 4px 6px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--muted-strong);
   line-height: 1.15;
 }
 .patient-disorder small {
   color: inherit;
-  font-size: 0.66rem;
+  font-size: 0.56rem;
   font-weight: 850;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -554,7 +556,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .patient-disorder strong {
   color: var(--heading);
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   line-height: 1;
 }
 .patient-disorder.critica { border-color: #fecaca; background: #fee2e2; color: #991b1b; }
@@ -1622,8 +1624,12 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .dashboard-row small { font-size: 0.74rem; line-height: 1.15; }
   .dashboard-row .badge { font-size: 0.68rem; padding: 3px 6px; }
   .patient-list { grid-template-columns: 1fr; }
-  .patient-row { align-items: stretch; }
-  .patient-select { align-items: center; }
+  .patient-row { align-items: stretch; padding: 6px; gap: 6px; }
+  .patient-select { align-items: center; gap: 4px; padding: 2px; }
+  .patient-disorders { width: 100%; grid-template-columns: repeat(auto-fit, minmax(70px, max-content)); gap: 3px; }
+  .patient-disorder { max-width: 92px; padding: 4px 5px; }
+  .patient-disorder small { font-size: 0.52rem; }
+  .patient-disorder strong { font-size: 0.84rem; }
   .patient-electrolytes { width: 100%; }
   .dashboard-row > span:last-child:not(.badge) { white-space: normal; }
   .check-grid, .follow-grid, .safety-grid { grid-template-columns: 1fr; }
