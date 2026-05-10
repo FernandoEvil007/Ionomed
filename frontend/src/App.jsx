@@ -418,6 +418,7 @@ function MainApp({ session, onLogout }) {
     ]);
     setPatientDetails(details);
     setOrderHistory(orders);
+    return { details, orders };
   }
 
   function resetForms() {
@@ -498,8 +499,8 @@ function MainApp({ session, onLogout }) {
     setSelectedPatient(patient);
     setPatientForm({ ...initialPatient, ...patient });
     setEvaluation(null);
-    await loadPatientDetails(patient._id);
-    setTab("laboratorio");
+    const data = await loadPatientDetails(patient._id);
+    setTab(data.details?.labs?.length ? "resultado" : "laboratorio");
     setPatientPanelOpen(false);
   }
 
@@ -1503,7 +1504,20 @@ function Num({ label, value, onChange }) {
 }
 
 function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, onDeleteLab, settings }) {
-  if (!evaluation) return <div className="alert">Aún no hay evaluación generada.</div>;
+  if (!evaluation) {
+    return (
+      <div className="result-panel">
+        <section className="result-header">
+          <div>
+            <h2>Paraclínicos registrados</h2>
+            <p>{patientDetails?.patient ? `Paciente: ${patientDetails.patient.nameOrCode}` : "Selecciona un paciente para consultar sus controles previos."}</p>
+          </div>
+        </section>
+        <div className="alert">No hay una evaluación nueva en pantalla. Puedes revisar o borrar paraclínicos ya registrados sin ingresar un dato nuevo.</div>
+        <PatientHistorySection labs={patientDetails?.labs || []} orders={orderHistory || []} onDeleteLab={onDeleteLab} open />
+      </div>
+    );
+  }
   const calc = evaluation.calculations || {};
   const classifications = evaluation.classifications || [];
   const orders = evaluation.orders || [];
@@ -1593,6 +1607,15 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         <Timeline labs={patientDetails?.labs || []} orders={orderHistory || []} />
       </FormSection>
     </div>
+  );
+}
+
+function PatientHistorySection({ labs, orders, onDeleteLab, open = false }) {
+  return (
+    <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría" open={open}>
+      <LabTrendTable labs={labs} onDeleteLab={onDeleteLab} />
+      <Timeline labs={labs} orders={orders} />
+    </FormSection>
   );
 }
 
