@@ -557,6 +557,7 @@ function MainApp({ session, onLogout }) {
     return {
       ...patient,
       latestLab: summary.latestLab || null,
+      latestElectrolytes: summary.latestElectrolytes || {},
       topOrder: summary.topOrder || null,
       activeOrders: summary.activeOrders || (summary.topOrder ? [summary.topOrder] : []),
       activeOrderCount: summary.activeOrderCount || 0,
@@ -674,7 +675,7 @@ function MainApp({ session, onLogout }) {
                 <div key={patient._id} className={`patient-row priority-${patient.riskPriority}`}>
                   <button className="patient-select" type="button" onClick={() => selectPatient(patient)}>
                     <span><strong>{patient.nameOrCode}</strong><small>{patient.age ? `${patient.age} años · ` : ""}{patient.clinicalArea}</small></span>
-                    <PatientDisorderList orders={patient.activeOrders || []} lab={patient.latestLab} />
+                    <PatientDisorderList orders={patient.activeOrders || []} lab={patient.latestElectrolytes || patient.latestLab} />
                     <span className="patient-clinical-meta">
                       <small>{patient.activeOrderCount ? `${patient.activeOrderCount} trastorno(s) activo(s)` : "Sin alerta activa"}</small>
                       <b>{patientControlSummary(patient)}</b>

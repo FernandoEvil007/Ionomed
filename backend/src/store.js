@@ -782,6 +782,22 @@ function dashboardControlValue(order, latestLab = null) {
   return "";
 }
 
+function latestElectrolyteValues(labs = []) {
+  const result = {};
+  const fields = ["sodium", "potassium", "chloride", "magnesium", "phosphorus", "calciumTotal", "calciumIonized"];
+  for (const lab of labs) {
+    for (const field of fields) {
+      if (result[field] !== undefined) continue;
+      const value = lab?.[field];
+      if (value !== undefined && value !== null && value !== "") {
+        result[field] = value;
+      }
+    }
+    if (fields.every((field) => result[field] !== undefined)) break;
+  }
+  return result;
+}
+
 export async function clinicalDashboard(institutionId) {
   const [patients, orderRows, labRows] = await Promise.all([
     listPatients(institutionId),
@@ -793,8 +809,12 @@ export async function clinicalDashboard(institutionId) {
   const labs = labRows.map(normalizeLab);
   const patientById = new Map(patients.map((patient) => [String(patient.id), patient]));
   const latestLabByPatient = new Map();
+  const labsByPatient = new Map();
 
   for (const lab of labs) {
+    const patientKey = String(lab.patientId);
+    if (!labsByPatient.has(patientKey)) labsByPatient.set(patientKey, []);
+    labsByPatient.get(patientKey).push(lab);
     if (!latestLabByPatient.has(String(lab.patientId))) {
       latestLabByPatient.set(String(lab.patientId), lab);
     }
@@ -843,6 +863,7 @@ export async function clinicalDashboard(institutionId) {
       return {
         ...patient,
         latestLab: latestLabByPatient.get(String(patient.id)) || null,
+        latestElectrolytes: latestElectrolyteValues(labsByPatient.get(String(patient.id)) || []),
         topOrder: patientOrders[0] || null,
         activeOrders: patientOrders.map((order) => ({
           _id: order._id,
