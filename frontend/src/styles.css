@@ -493,7 +493,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .patient-electrolytes {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
   gap: 5px;
 }
 .patient-electrolyte {
@@ -515,6 +515,22 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   color: var(--heading);
   font-size: 1.08rem;
   line-height: 1;
+}
+.patient-electrolyte.altered {
+  border-color: #fb923c;
+  background: #fff7ed;
+}
+.patient-electrolyte.altered small,
+.patient-electrolyte.altered strong {
+  color: #9a3412;
+}
+:root[data-theme="dark"] .patient-electrolyte.altered {
+  border-color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+}
+:root[data-theme="dark"] .patient-electrolyte.altered small,
+:root[data-theme="dark"] .patient-electrolyte.altered strong {
+  color: #fdba74;
 }
 .patient-solution-line {
   display: block;

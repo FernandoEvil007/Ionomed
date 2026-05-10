@@ -2337,20 +2337,27 @@ function patientControlSummary(patient) {
 
 function PatientElectrolyteStrip({ lab }) {
   const items = [
-    ["Na", lab?.sodium],
-    ["K", lab?.potassium],
-    ["Cl", lab?.chloride],
-    ["Ca", lab?.calciumIonized ?? lab?.calciumTotal],
-    ["P", lab?.phosphorus]
-  ];
+    { label: "Na", value: lab?.sodium, low: 135, high: 145 },
+    { label: "K", value: lab?.potassium, low: 3.5, high: 5.0 },
+    { label: "Cl", value: lab?.chloride, low: 98, high: 106 },
+    { label: "Ca", value: lab?.calciumIonized ?? lab?.calciumTotal, low: lab?.calciumIonized ? 1.12 : 8.5, high: lab?.calciumIonized ? 1.32 : 10.5 },
+    { label: "P", value: lab?.phosphorus, low: 2.0, high: 4.5 }
+  ].filter((item) => item.value !== undefined && item.value !== null && item.value !== "");
+
+  if (!items.length) return null;
+
   return (
     <span className="patient-electrolytes">
-      {items.map(([label, value]) => (
-        <span className="patient-electrolyte" key={label}>
-          <small>{label}</small>
-          <strong>{value === undefined || value === null || value === "" ? "--" : value}</strong>
-        </span>
-      ))}
+      {items.map((item) => {
+        const numericValue = Number(item.value);
+        const state = Number.isFinite(numericValue) && (numericValue < item.low || numericValue > item.high) ? "altered" : "normal";
+        return (
+          <span className={`patient-electrolyte ${state}`} key={item.label}>
+            <small>{item.label}</small>
+            <strong>{item.value}</strong>
+          </span>
+        );
+      })}
     </span>
   );
 }
