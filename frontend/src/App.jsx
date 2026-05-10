@@ -843,9 +843,9 @@ const solutionGroups = [
         name: "Reposicion de magnesio IV",
         match: ["hipomagnesemia"],
         route: "IV",
-        preparation: "Magnesio 4000 mg endovenosos para 24 horas",
-        content: "4000 mg/24 h",
-        use: "Administrar por bomba; ajustar o suspender segun funcion renal, reflejos, respiracion y control de magnesio."
+        preparation: "Magnesio 4000 mg en 100 cc de solucion salina 0.9%",
+        content: "4000 mg/24 h a 5 cc/h",
+        use: "Administrar por bomba a 5 cc/h por 24 horas; ajustar o suspender segun funcion renal, reflejos, respiracion y control de magnesio."
       }
     ]
   },
@@ -1109,6 +1109,7 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
             <option value="desconocido">Desconocido</option>
             <option value="periferico">Periférico</option>
             <option value="linea_media">Línea media</option>
+            <option value="picc">PICC</option>
             <option value="central">Central</option>
             <option value="ninguno">Ninguno</option>
           </select>
@@ -1405,7 +1406,7 @@ const electrolyteSolutionOptions = {
     { key: "kcentral", label: "KCl central: 40 mL Katrol + 460 mL SSN 0.9%", concentration: 0.16, preparation: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Solo via central; no pasar por periferica. No superar 20 mEq/h por via central." }
   ],
   magnesium: [
-    { key: "mg4000", label: "Magnesio 4000 mg endovenosos para 24 horas", totalDoseMg: 4000, hours: 24 }
+    { key: "mg4000", label: "Magnesio 4000 mg en 100 cc SSN 0.9%", totalDoseMg: 4000, hours: 24, rateMlH: 5, preparation: "Preparacion magnesio: mezclar 4000 mg de magnesio en 100 cc de solucion salina 0.9%. Pasar a 5 cc/h por bomba durante 24 horas." }
   ],
   phosphorusCentral: [
     { key: "pcentral", label: "Fosfato de potasio central 0.13 mmol/mL x 100 mL", concentration: 0.13, potassium: 0.19 }
@@ -1568,7 +1569,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
   let calculator = null;
 
   if (disorder.includes("hipokalemia")) {
-    const central = (Number.isFinite(potassium) && potassium < 3 && severity !== "leve") || String(safety.selectedInfusion || "").includes("central");
+    const central = (Number.isFinite(potassium) && potassium < 2.5) || String(safety.selectedInfusion || "").includes("central");
     options = central ? electrolyteSolutionOptions.potassiumCentral : electrolyteSolutionOptions.potassiumPeripheral;
     defaultRate = central ? (potassium < 2 ? 100 : 50) : (defaultRate || 50);
     calculator = (solution) => {
@@ -1589,7 +1590,8 @@ function NonSodiumSolutionSelector({ order, onTextCalculated }) {
       return [
         `Paciente con ${String(order.disorder || "hipomagnesemia").toLowerCase()} (Mg ${safety.magnesium ?? "no disponible"} mg/dL).`,
         `Solucion escogida: ${solution.label}.`,
-        `Administrar ${solution.totalDoseMg} mg endovenosos para ${solution.hours} horas por bomba (${magnesiumRate} mg/h en promedio).`,
+        solution.preparation,
+        `Administrar ${solution.totalDoseMg} mg endovenosos para ${solution.hours} horas por bomba a ${solution.rateMlH || 5} cc/h (${magnesiumRate} mg/h en promedio).`,
         "Ajustar o suspender si hay deterioro renal, arreflexia, depresion respiratoria, hipotension o signos de toxicidad.",
         "Solicitar magnesio, potasio, calcio y creatinina de control segun severidad y funcion renal."
       ];
@@ -2117,7 +2119,7 @@ function orderSolutionOptions(order) {
   if (disorder.includes("hiponatremia")) return ["SSN 3%: 400 cc SSN 0.9% + 10 ampollas Natrol", "Solucion salina 0.9% si hipovolemia"];
   if (disorder.includes("hipernatremia")) return ["SSN 0.45%: 2 ampollas Natrol + 480 cc agua destilada", "Dextrosa al 5%", "Agua libre oral/enteral"];
   if (disorder.includes("hipokalemia")) return ["KCl periferico: 25 mL Katrol + 475 cc SSN 0.9%", "KCl central: 40 mL Katrol + 460 mL SSN 0.9%"];
-  if (disorder.includes("hipomagnesemia")) return ["Magnesio 4000 mg IV para 24 horas"];
+  if (disorder.includes("hipomagnesemia")) return ["Magnesio 4000 mg en 100 cc SSN 0.9% a 5 cc/h"];
   if (disorder.includes("hipofosfatemia")) return ["Fosfato de potasio central", "Fosfato de potasio periferico"];
   if (disorder.includes("hipocalcemia")) return ["Gluconato de calcio al 10%"];
   if (disorder.includes("hipercalcemia")) return ["Solucion salina 0.9%"];

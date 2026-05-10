@@ -96,7 +96,8 @@ const solutionPreparation = {
   saline045: "Preparacion SSN 0.45%: mezclar 2 ampollas de Natrol con 480 cc de agua destilada.",
   saline3: "Preparacion SSN 3%: mezclar 400 cc de solucion salina 0.9% con 10 ampollas de Natrol.",
   potassiumPeripheral: "Preparacion KCl periferico: mezclar 25 mL de Katrol con 475 cc de solucion salina 0.9%. Usar por via periferica con bomba; no superar 8 mEq/h por via periferica.",
-  potassiumCentral: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central."
+  potassiumCentral: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central.",
+  magnesium: "Preparacion magnesio: mezclar 4000 mg de magnesio en 100 cc de solucion salina 0.9%. Pasar a 5 cc/h por bomba durante 24 horas."
 };
 
 function sodiumInfusatePlan(sodium, totalBodyWater, dailyLimit, preferredKey = "saline3") {
@@ -260,6 +261,19 @@ function severeHyponatremiaContinuousPlan(patient, calculations, dailyLimit) {
   };
 }
 
+function sodiumAccessRecommendation(sodium, patient) {
+  const currentAccess = patient.venousAccess || "desconocido";
+  const preferredAccess = ["central", "linea_media", "picc"];
+  if (number(sodium) === null || Number(sodium) >= 125) return null;
+  return {
+    required: false,
+    currentAccess,
+    preferredAccess: "cateter venoso central, linea media o PICC",
+    hasPreferredAccess: preferredAccess.includes(currentAccess),
+    message: "Sodio menor de 125 mmol/L: preferir cateter venoso central, linea media o PICC para correccion activa y controles frecuentes."
+  };
+}
+
 function hypernatremiaFluidPlan(patient, sodium, totalBodyWater, freeWaterDeficit) {
   const options = "solucion salina 0.45%, dextrosa al 5%, agua libre por sonda enteral o via oral";
   const bestSolution = hypernatremiaBestSolution(patient);
@@ -359,7 +373,8 @@ function potassiumFluidPlan(patient, classification, safety) {
   if (classification.disorder.includes("Hipokalemia")) {
     const availableInfusions = "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%; KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%";
     const centralRequired = safety.potassium < 2 && classification.severity === "severa";
-    const central = safety.centralAccess || centralRequired;
+    const centralPreferred = safety.potassium < 2.5;
+    const central = safety.centralAccess || centralRequired || centralPreferred;
     const midline = patient.venousAccess === "linea_media";
     const concentrationMeqMl = central ? 0.16 : 0.1;
     const maxInfusionRateMlH = central ? 100 : (midline ? 70 : 50);
@@ -380,7 +395,8 @@ function potassiumFluidPlan(patient, classification, safety) {
       availableInfusions,
       text: `Liquidos continuos: usar ${potassiumInfusionType}. ${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
       controls: [
-        ...(centralRequired && !safety.centralAccess ? ["Solicitar o confirmar via central antes de iniciar KCl central"] : []),
+        ...(centralRequired && !safety.centralAccess ? ["K menor de 2 mmol/L: cateter venoso central mandatorio antes de iniciar KCl central"] : []),
+        ...(centralPreferred && !centralRequired && !safety.centralAccess ? ["K menor de 2.5 mmol/L: preferir via central; si no esta disponible, confirmar riesgo/beneficio antes de usar via periferica"] : []),
         ...(!central && safety.potassium < 3 ? ["Reposicion calculada para via periferica registrada; si se requiere mayor velocidad, obtener via central y recalcular"] : []),
         "Verificar concentracion final de KCl y via venosa",
         "Confirmar velocidad en mL/h y mEq/h antes de iniciar",
@@ -404,18 +420,18 @@ function hypokalemiaControlText(k) {
 
 function magnesiumFluidPlan(patient, classification) {
   if (classification.disorder.includes("Hipomagnesemia")) {
-    const availableInfusions = "Magnesio 4000 mg endovenosos para 24 horas";
+    const availableInfusions = "Magnesio 4000 mg en 100 cc de SSN 0.9% para pasar a 5 cc/h por 24 horas";
     const renalRisk = hasAny(patient.comorbidities || [], ["erc", "anuria", "oliguria"]);
-    const infusionRateMlH = null;
+    const infusionRateMlH = 5;
     const magnesiumRateMgH = Math.round(4000 / 24);
     return {
       continuousFluid: "Reposicion de magnesio IV 4000 mg/24 h",
-      continuousRate: null,
-      selectedInfusion: "Magnesio 4000 mg endovenosos para 24 horas",
+      continuousRate: infusionRateMlH,
+      selectedInfusion: "Magnesio 4000 mg en 100 cc de SSN 0.9%",
       infusionRateMlH,
       magnesiumRateMgH,
       availableInfusions,
-      text: `Reposicion de magnesio: administrar magnesio 4000 mg endovenosos para 24 horas por bomba. Velocidad promedio de aporte: ${magnesiumRateMgH} mg/h. Ajustar o suspender si hay deterioro renal, arreflexia, depresion respiratoria, hipotension o signos de toxicidad.`,
+      text: `Reposicion de magnesio: ${solutionPreparation.magnesium} Velocidad promedio de aporte: ${magnesiumRateMgH} mg/h. Ajustar o suspender si hay deterioro renal, arreflexia, depresion respiratoria, hipotension o signos de toxicidad.`,
       controls: ["Suspender reposicion si arreflexia, depresion respiratoria o deterioro renal", ...(renalRisk ? ["Funcion renal reducida: considerar ajuste y vigilancia mas estrecha"] : [])]
     };
   }
@@ -546,6 +562,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
   const dailyLimit = 8;
   const correctionLimits = sodiumCorrectionLimits(dailyLimit);
   const missingData = sodiumMissingData(patient, lab);
+  const accessRecommendation = sodiumAccessRecommendation(sodium, patient);
   const safety = {
     sodiumMeasured: number(lab.sodium),
     sodiumCorrected: calculations.sodiumCorrected,
@@ -556,6 +573,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
     maxCorrection4h: correctionLimits.max4h,
     highRiskOds: highRisk,
     targetInitialRise: classification.disorder === "Hiponatremia severa sintomatica" ? "4 a 6 mmol/L o mejoria neurologica" : "correccion gradual segun etiologia",
+    sodiumAccessRecommendation: accessRecommendation,
     estimated3PercentChangePerLiter: calculations.sodium3ChangePerLiter,
     estimated3PercentRateFor05: calculations.sodium3RateFor05
   };
@@ -564,6 +582,7 @@ function sodiumOrder(patient, lab, calculations, classification) {
     alerts.push(`Sodio corregido por glucosa: ${calculations.sodiumCorrected} mmol/L.`);
   }
   alerts.push(`Limite de recambio de sodio: no superar ${correctionLimits.max4h} mmol/L en 4 horas, ${correctionLimits.max8h} mmol/L en 8 horas, ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas.`);
+  if (accessRecommendation) alerts.push(accessRecommendation.message);
   if (highRisk) alerts.push(`Alto riesgo de desmielinizacion osmotica: usar limite mas conservador de ${correctionLimits.max24h} mmol/L en 24 horas.`);
   if (missingData.length) alerts.push(`Datos faltantes para mayor precision: ${missingData.join(", ")}.`);
 
@@ -575,8 +594,8 @@ function sodiumOrder(patient, lab, calculations, classification) {
       alerts: [...alerts, "Riesgo de edema cerebral y sobrecorreccion. Control estricto de sodio durante fase activa."],
       safety: { ...safety, ...infusionSafety(continuousPlan) },
       missingData,
-      controls: ["Sodio al finalizar bolo o en 20 a 30 minutos", sodiumControl, "Diuresis, balance hidrico y estado neurologico continuo", ...continuousPlan.controls],
-      text: `Paciente con sodio ${sodium} mmol/L y signos neurologicos. Administrar solucion salina hipertonica al 3% 150 cc IV en 20 minutos bajo monitorizacion clinica y neurologica estricta. Solicitar sodio serico de control al finalizar el bolo o en 20 a 30 minutos. Repetir bolo solo si persisten signos neurologicos severos o no se alcanza ascenso inicial esperado, evitando superar ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas. Meta inicial: aumento de 4 a 6 mmol/L o mejoria neurologica suficiente. Liquidos continuos: ${continuousPlan.text} Luego continuar sodio de control cada 6 horas durante fase activa. Continuar vigilancia de diuresis, balance hidrico y estado neurologico.`,
+      controls: ["Sodio al finalizar bolo o en 20 a 30 minutos", sodiumControl, ...(accessRecommendation ? [accessRecommendation.message] : []), "Diuresis, balance hidrico y estado neurologico continuo", ...continuousPlan.controls],
+      text: `Paciente con sodio ${sodium} mmol/L y signos neurologicos. ${accessRecommendation ? `${accessRecommendation.message} ` : ""}Administrar solucion salina hipertonica al 3% 150 cc IV en 20 minutos bajo monitorizacion clinica y neurologica estricta. Solicitar sodio serico de control al finalizar el bolo o en 20 a 30 minutos. Repetir bolo solo si persisten signos neurologicos severos o no se alcanza ascenso inicial esperado, evitando superar ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas. Meta inicial: aumento de 4 a 6 mmol/L o mejoria neurologica suficiente. Liquidos continuos: ${continuousPlan.text} Luego continuar sodio de control cada 6 horas durante fase activa. Continuar vigilancia de diuresis, balance hidrico y estado neurologico.`,
       justification: `Se activa regla interna: sodio corregido menor de 120 mmol/L asociado a signos neurologicos. Limite aplicado: ${correctionLimits.max12h} mmol/L en 12 horas y ${correctionLimits.max24h} mmol/L en 24 horas.`
     });
   }
@@ -588,8 +607,8 @@ function sodiumOrder(patient, lab, calculations, classification) {
       alerts: [...alerts, "No se activa bolo automatico de NaCl 3% porque no hay signos neurologicos severos marcados."],
       safety: { ...safety, ...infusionSafety(continuousPlan) },
       missingData,
-      controls: ["Sodio de control cada 6 horas durante fase activa", "Diuresis y balance hidrico", ...continuousPlan.controls],
-      text: `Paciente con hiponatremia profunda sin signos neurologicos severos registrados. No administrar bolo automatico de solucion salina hipertonica al 3%. Confirmar tonicidad, volemia, medicamentos asociados, glucosa, osmolaridad serica/urinaria y sodio urinario si estan disponibles. Si se decide correccion activa, usar estrategia controlada con limite maximo de ${correctionLimits.max12h} mmol/L en 12 horas y ${correctionLimits.max24h} mmol/L en 24 horas. Liquidos continuos: ${continuousPlan.text} Solicitar sodio de control cada 6 horas o antes si aparece deterioro neurologico.`,
+      controls: ["Sodio de control cada 6 horas durante fase activa", ...(accessRecommendation ? [accessRecommendation.message] : []), "Diuresis y balance hidrico", ...continuousPlan.controls],
+      text: `Paciente con hiponatremia profunda sin signos neurologicos severos registrados. ${accessRecommendation ? `${accessRecommendation.message} ` : ""}No administrar bolo automatico de solucion salina hipertonica al 3%. Confirmar tonicidad, volemia, medicamentos asociados, glucosa, osmolaridad serica/urinaria y sodio urinario si estan disponibles. Si se decide correccion activa, usar estrategia controlada con limite maximo de ${correctionLimits.max12h} mmol/L en 12 horas y ${correctionLimits.max24h} mmol/L en 24 horas. Liquidos continuos: ${continuousPlan.text} Solicitar sodio de control cada 6 horas o antes si aparece deterioro neurologico.`,
       justification: "Hiponatremia profunda sin criterio interno para bolo automatico; requiere etiologia y correccion controlada."
     });
   }
@@ -602,10 +621,10 @@ function sodiumOrder(patient, lab, calculations, classification) {
       alerts: [...alerts, "No se activa solucion hipertonica automatica porque no cumple sodio menor de 120 con signos neurologicos."],
       safety: { ...safety, ...infusionSafety(continuousPlan) },
       missingData,
-      controls: [...(number(sodium) < 129 ? ["Sodio de control cada 6 horas durante fase activa"] : ["Sodio de control segun severidad"]), "Repetir antes si hay deterioro clinico", "Vigilar diuresis acuosa subita", ...continuousPlan.controls],
+      controls: [...(number(sodium) < 129 ? ["Sodio de control cada 6 horas durante fase activa"] : ["Sodio de control segun severidad"]), ...(accessRecommendation ? [accessRecommendation.message] : []), "Repetir antes si hay deterioro clinico", "Vigilar diuresis acuosa subita", ...continuousPlan.controls],
       text: hypovolemic
-        ? `Paciente con ${classification.disorder.toLowerCase()} y volemia hipovolemica marcada. Liquidos continuos: considerar solucion salina 0.9% a 100 cc/hora por bomba, ajustando segun presion arterial, diuresis, funcion renal, riesgo de sobrecarga y velocidad real de correccion. Control de sodio cada 6 horas o antes si hay deterioro. Evitar superar ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas; reducir o suspender infusion si el ascenso es rapido.`
-        : `Paciente con ${classification.disorder.toLowerCase()}. Evaluar volemia, osmolaridad serica, osmolaridad urinaria, sodio urinario, medicamentos asociados y etiologia probable. Liquidos continuos: ${continuousPlan.text} Definir restriccion hidrica, suspension de medicamentos o manejo especifico segun causa. Solicitar sodio de control cada 6 horas si Na menor de 129 o si se inicia intervencion activa.`,
+        ? `Paciente con ${classification.disorder.toLowerCase()} y volemia hipovolemica marcada. ${accessRecommendation ? `${accessRecommendation.message} ` : ""}Liquidos continuos: considerar solucion salina 0.9% a 100 cc/hora por bomba, ajustando segun presion arterial, diuresis, funcion renal, riesgo de sobrecarga y velocidad real de correccion. Control de sodio cada 6 horas o antes si hay deterioro. Evitar superar ${correctionLimits.max12h} mmol/L en 12 horas ni ${correctionLimits.max24h} mmol/L en 24 horas; reducir o suspender infusion si el ascenso es rapido.`
+        : `Paciente con ${classification.disorder.toLowerCase()}. ${accessRecommendation ? `${accessRecommendation.message} ` : ""}Evaluar volemia, osmolaridad serica, osmolaridad urinaria, sodio urinario, medicamentos asociados y etiologia probable. Liquidos continuos: ${continuousPlan.text} Definir restriccion hidrica, suspension de medicamentos o manejo especifico segun causa. Solicitar sodio de control cada 6 horas si Na menor de 129 o si se inicia intervencion activa.`,
       justification: "Hiponatremia sin criterio interno de emergencia neurologica por IonoMed."
     });
   }
@@ -638,7 +657,7 @@ function potassiumSafety(patient, lab, calculations, classification) {
   const renalSevere = calculations.egfr !== null && calculations.egfr < 30;
   const oliguria = number(patient.urineOutputMlKgH) !== null && number(patient.urineOutputMlKgH) < 0.5;
   const anuria = hasAny(patient.comorbidities || [], ["anuria"]);
-  const centralAccess = patient.venousAccess === "central";
+  const centralAccess = ["central", "picc"].includes(patient.venousAccess);
   const midlineAccess = patient.venousAccess === "linea_media";
   const monitor = classification.priority === "critica";
   return {
