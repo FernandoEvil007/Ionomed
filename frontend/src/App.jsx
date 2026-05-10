@@ -631,6 +631,7 @@ function MainApp({ session, onLogout }) {
                 <div key={patient._id} className={`patient-row priority-${patient.riskPriority}`}>
                   <button className="patient-select" type="button" onClick={() => selectPatient(patient)}>
                     <span><strong>{patient.nameOrCode}</strong><small>{patient.age ? `${patient.age} años · ` : ""}{patient.clinicalArea}</small></span>
+                    <PatientElectrolyteStrip lab={patient.latestLab} />
                     <span className="patient-clinical-meta">
                       <small>{patient.topOrder?.disorder || "Sin alerta activa"}</small>
                       <b>{patientControlSummary(patient)}</b>
@@ -2332,6 +2333,26 @@ function patientControlSummary(patient) {
   if (disorder.includes("fosf") && lab.phosphorus !== undefined && lab.phosphorus !== null) return `P ${lab.phosphorus}`;
   if (disorder.includes("calcemia") && (lab.calciumIonized !== undefined || lab.calciumTotal !== undefined)) return `Ca ${lab.calciumIonized ?? lab.calciumTotal}`;
   return patient.activeOrderCount ? `${patient.activeOrderCount} orden(es)` : "Sin control";
+}
+
+function PatientElectrolyteStrip({ lab }) {
+  const items = [
+    ["Na", lab?.sodium],
+    ["K", lab?.potassium],
+    ["Cl", lab?.chloride],
+    ["Ca", lab?.calciumIonized ?? lab?.calciumTotal],
+    ["P", lab?.phosphorus]
+  ];
+  return (
+    <span className="patient-electrolytes">
+      {items.map(([label, value]) => (
+        <span className="patient-electrolyte" key={label}>
+          <small>{label}</small>
+          <strong>{value === undefined || value === null || value === "" ? "--" : value}</strong>
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function patientCurrentSolution(patient) {
