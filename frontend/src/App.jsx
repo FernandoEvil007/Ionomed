@@ -2332,13 +2332,13 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
 }
 
 function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, total = 1 }) {
-  const [text, setText] = useState(order.editedText || order.suggestedText || "");
+  const [text, setText] = useState(cleanAppliedOrderText(order.editedText || order.suggestedText || ""));
   const [comment, setComment] = useState(order.comment || "");
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setText(order.editedText || order.suggestedText || "");
+    setText(cleanAppliedOrderText(order.editedText || order.suggestedText || ""));
     setComment(order.comment || "");
   }, [order]);
 
@@ -2378,13 +2378,14 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
   }
 
   async function handleCalculatedText(nextText, metadata = {}) {
-    setText(nextText);
+    const cleanedText = cleanAppliedOrderText(nextText);
+    setText(cleanedText);
     if (!metadata.recalculated || !order._id) return;
     const updated = await update(`/orders/${order._id}/recalculate`, {
       method: "POST",
-      body: JSON.stringify({ editedText: nextText, metadata })
+      body: JSON.stringify({ editedText: cleanedText, metadata })
     });
-    if (updated?.editedText) setText(updated.editedText);
+    if (updated?.editedText) setText(cleanAppliedOrderText(updated.editedText));
   }
 
   return (
@@ -2630,6 +2631,22 @@ function safetyFields(safety, definitions) {
     .filter(Boolean);
 }
 
+function cleanAppliedOrderText(value) {
+  const rawLines = String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const cleanedLines = rawLines
+    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .map((line) => line.replace(/^Paciente con [^.]+?\.\s*/i, "").trim())
+    .filter((line) => !/^Formula aplicada\b/i.test(line))
+    .filter((line) => !/^Fórmula aplicada\b/i.test(line))
+    .filter((line) => !/^Esta velocidad esta limitada\b/i.test(line))
+    .filter((line) => !/^Esta velocidad está limitada\b/i.test(line))
+    .filter(Boolean);
+  return cleanedLines.map((line, index) => `${index + 1}. ${line}`).join("\n");
+}
+
 function Timeline({ labs, orders }) {
   const events = [
     ...labs.map((lab) => ({
@@ -2738,7 +2755,7 @@ function buildClinicalSummary(evaluation, patientDetails) {
     "Órdenes sugeridas",
     ...((evaluation?.orders || []).flatMap((order, index) => [
       `${index + 1}. ${order.disorder}`,
-      order.editedText || order.suggestedText || "",
+      cleanAppliedOrderText(order.editedText || order.suggestedText || ""),
       ""
     ]))
   ];
