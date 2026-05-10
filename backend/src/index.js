@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin.js";
 import dashboardRoutes from "./routes/dashboard.js";
 
 const app = express();
+const apiRouter = express.Router();
 const port = process.env.PORT || 4000;
 
 app.use(helmet());
@@ -19,16 +20,19 @@ app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", cred
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
-app.get("/api/health", (_req, res) => {
+apiRouter.get("/health", (_req, res) => {
   res.json({ ok: true, app: "IonoMed", version: "0.1.0", database: "sqlite" });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/patients", patientRoutes);
-app.use("/api/clinical", clinicalRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+apiRouter.use("/auth", authRoutes);
+apiRouter.use("/patients", patientRoutes);
+apiRouter.use("/clinical", clinicalRoutes);
+apiRouter.use("/orders", orderRoutes);
+apiRouter.use("/admin", adminRoutes);
+apiRouter.use("/dashboard", dashboardRoutes);
+
+app.use("/api", apiRouter);
+app.use("/", apiRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
