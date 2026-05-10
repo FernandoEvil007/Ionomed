@@ -670,8 +670,7 @@ function MainApp({ session, onLogout }) {
                 <div key={patient._id} className={`patient-row priority-${patient.riskPriority}`}>
                   <button className="patient-select" type="button" onClick={() => selectPatient(patient)}>
                     <span><strong>{patient.nameOrCode}</strong><small>{patient.age ? `${patient.age} años · ` : ""}{patient.clinicalArea}</small></span>
-                    <PatientElectrolyteStrip lab={patient.latestLab} />
-                    <PatientDisorderList orders={patient.activeOrders || []} />
+                    <PatientDisorderList orders={patient.activeOrders || []} lab={patient.latestLab} />
                     <span className="patient-clinical-meta">
                       <small>{patient.activeOrderCount ? `${patient.activeOrderCount} trastorno(s) activo(s)` : "Sin alerta activa"}</small>
                       <b>{patientControlSummary(patient)}</b>
@@ -2778,18 +2777,56 @@ function PatientElectrolyteStrip({ lab }) {
   );
 }
 
-function PatientDisorderList({ orders }) {
-  const visibleOrders = (orders || []).filter(Boolean).slice(0, 4);
+function PatientDisorderList({ orders, lab }) {
+  const seen = new Set();
+  const visibleOrders = (orders || [])
+    .filter(Boolean)
+    .filter((order) => {
+      const key = disorderKey(order.disorder);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
   if (!visibleOrders.length) return null;
   return (
     <span className="patient-disorders">
-      {visibleOrders.map((order) => (
-        <small className={`patient-disorder ${order.priority || ""}`} key={order._id || order.disorder}>
-          {order.disorder}
-        </small>
-      ))}
+      {visibleOrders.map((order) => {
+        const metric = disorderMetric(order.disorder, lab);
+        return (
+          <span className={`patient-disorder ${order.priority || ""}`} key={disorderKey(order.disorder)}>
+            <small>{order.disorder}</small>
+            <strong>{metric}</strong>
+          </span>
+        );
+      })}
     </span>
   );
+}
+
+function disorderKey(disorder = "") {
+  const value = String(disorder).toLowerCase();
+  if (value.includes("natremia")) return "sodio";
+  if (value.includes("kalemia")) return "potasio";
+  if (value.includes("magnes")) return "magnesio";
+  if (value.includes("fosf")) return "fosforo";
+  if (value.includes("calcemia")) return "calcio";
+  return value.replace(/\s+/g, "-") || "trastorno";
+}
+
+function disorderMetric(disorder = "", lab = {}) {
+  const value = String(disorder).toLowerCase();
+  if (value.includes("natremia")) return `Na ${displayCompact(lab?.sodium)}`;
+  if (value.includes("kalemia")) return `K ${displayCompact(lab?.potassium)}`;
+  if (value.includes("magnes")) return `Mg ${displayCompact(lab?.magnesium)}`;
+  if (value.includes("fosf")) return `P ${displayCompact(lab?.phosphorus)}`;
+  if (value.includes("calcemia")) return `Ca ${displayCompact(lab?.calciumIonized ?? lab?.calciumTotal)}`;
+  return displayCompact("");
+}
+
+function displayCompact(value) {
+  if (value === undefined || value === null || value === "") return "—";
+  return value;
 }
 
 function patientCurrentSolution(patient) {
