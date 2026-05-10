@@ -7,6 +7,15 @@ const ELECTROLYTES = [
   { key: "calciumIonized", label: "Calcio ionizado", unit: "mmol/L" }
 ];
 
+const PERSISTENT_RULES = [
+  { key: "sodium", low: 135, high: 145, lowName: "Hiponatremia pendiente de normalizar", highName: "Hipernatremia pendiente de normalizar", unit: "mmol/L" },
+  { key: "potassium", low: 3.5, high: 5.0, lowName: "Hipokalemia pendiente de normalizar", highName: "Hiperkalemia pendiente de normalizar", unit: "mmol/L" },
+  { key: "magnesium", low: 1.6, high: 2.6, lowName: "Hipomagnesemia pendiente de normalizar", highName: "Hipermagnesemia pendiente de normalizar", unit: "mg/dL" },
+  { key: "phosphorus", low: 2.0, high: 4.5, lowName: "Hipofosfatemia pendiente de normalizar", highName: "Hiperfosfatemia pendiente de normalizar", unit: "mg/dL" },
+  { key: "calciumTotal", low: 8.5, high: 10.5, lowName: "Hipocalcemia pendiente de normalizar", highName: "Hipercalcemia pendiente de normalizar", unit: "mg/dL" },
+  { key: "calciumIonized", low: 1.12, high: 1.32, lowName: "Hipocalcemia ionizada pendiente de normalizar", highName: "Hipercalcemia ionizada pendiente de normalizar", unit: "mmol/L" }
+];
+
 function toNumber(value) {
   if (value === undefined || value === null || value === "") return null;
   const parsed = Number(value);
@@ -76,6 +85,37 @@ function potassiumCorrectionStatus(current, delta) {
     };
   }
   return null;
+}
+
+function persistentPriority(rule, value, direction) {
+  if (rule.key === "sodium" && (value < 130 || value > 155)) return "alta";
+  if (rule.key === "potassium" && (value < 3.0 || value > 5.5)) return "alta";
+  if (rule.key === "magnesium" && (value < 1.2 || value > 4)) return "alta";
+  if (rule.key === "phosphorus" && (value < 1 || value > 6)) return "alta";
+  if (rule.key.includes("calcium") && ((direction === "low" && value < rule.low - 1) || (direction === "high" && value > rule.high + 1.5))) return "alta";
+  return "moderada";
+}
+
+export function buildPersistentClassifications({ currentLab, previousLab }) {
+  if (!previousLab) return [];
+
+  return PERSISTENT_RULES.flatMap((rule) => {
+    const current = toNumber(currentLab[rule.key]);
+    if (current !== null) return [];
+
+    const previous = toNumber(previousLab[rule.key]);
+    if (previous === null) return [];
+    const direction = previous < rule.low ? "low" : previous > rule.high ? "high" : null;
+    if (!direction) return [];
+
+    return [{
+      disorder: direction === "low" ? rule.lowName : rule.highName,
+      severity: "pendiente de control",
+      priority: persistentPriority(rule, previous, direction),
+      persistent: true,
+      note: `Ultimo valor anormal registrado: ${previous} ${rule.unit}. Debe seguir visible hasta documentar normalizacion.`
+    }];
+  });
 }
 
 export function buildFollowUp({ currentLab, previousLab, patient = {}, settings = {} }) {

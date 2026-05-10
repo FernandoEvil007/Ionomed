@@ -358,12 +358,12 @@ function ecgRecommendation(disorder) {
 function potassiumFluidPlan(patient, classification, safety) {
   if (classification.disorder.includes("Hipokalemia")) {
     const availableInfusions = "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%; KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%";
-    const centralForModerateSevere = safety.potassium >= 2 && safety.potassium < 3;
-    const central = centralForModerateSevere || ((safety.centralAccess || safety.potassium < 2) && classification.severity === "severa");
+    const centralRequired = safety.potassium < 2 && classification.severity === "severa";
+    const central = safety.centralAccess || centralRequired;
     const midline = patient.venousAccess === "linea_media";
     const concentrationMeqMl = central ? 0.16 : 0.1;
     const maxInfusionRateMlH = central ? 100 : (midline ? 70 : 50);
-    const infusionRateMlH = centralForModerateSevere ? 50 : maxInfusionRateMlH;
+    const infusionRateMlH = central ? (centralRequired ? 100 : 50) : maxInfusionRateMlH;
     const potassiumRateMeqH = Math.round(infusionRateMlH * concentrationMeqMl * 10) / 10;
     const potassiumInfusionType = central ? "infusion de potasio central" : "infusion de potasio periferica";
     const selectedInfusion = central
@@ -380,7 +380,8 @@ function potassiumFluidPlan(patient, classification, safety) {
       availableInfusions,
       text: `Liquidos continuos: usar ${potassiumInfusionType}. ${preparationText} Pasar a ${infusionRateMlH} mL/h (${potassiumRateMeqH} mEq/h) por bomba. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. Ajustar o suspender al recibir control de potasio.`,
       controls: [
-        ...(centralForModerateSevere ? ["Solicitar o confirmar via central para potasio entre 2.0 y 2.9 mmol/L"] : []),
+        ...(centralRequired && !safety.centralAccess ? ["Solicitar o confirmar via central antes de iniciar KCl central"] : []),
+        ...(!central && safety.potassium < 3 ? ["Reposicion calculada para via periferica registrada; si se requiere mayor velocidad, obtener via central y recalcular"] : []),
         "Verificar concentracion final de KCl y via venosa",
         "Confirmar velocidad en mL/h y mEq/h antes de iniciar",
         "No mezclar con bolos rapidos de potasio"

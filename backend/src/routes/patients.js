@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { authRequired } from "../middleware/auth.js";
 import { evaluateClinicalCase } from "../clinical/engine.js";
-import { buildFollowUp } from "../clinical/followup.js";
+import { buildFollowUp, buildPersistentClassifications } from "../clinical/followup.js";
 import {
   closePatient,
   createLab,
@@ -121,6 +121,16 @@ router.post("/:id/labs", async (req, res, next) => {
     });
 
     evaluation.followUp = followUp;
+    const persistentClassifications = buildPersistentClassifications({ currentLab: lab, previousLab });
+    const activeDisorders = new Set(evaluation.classifications.map((item) => String(item.disorder || "").split(" ")[0].toLowerCase()));
+    const newPersistent = persistentClassifications.filter((item) => !activeDisorders.has(String(item.disorder || "").split(" ")[0].toLowerCase()));
+    if (newPersistent.length) {
+      evaluation.classifications = [...evaluation.classifications, ...newPersistent];
+      evaluation.globalAlerts = [
+        ...newPersistent.map((item) => item.note),
+        ...(evaluation.globalAlerts || [])
+      ];
+    }
     evaluation.globalAlerts = [...(followUp.alerts || []), ...(evaluation.globalAlerts || [])];
 
     const orders = await createOrders(evaluation.orders, {

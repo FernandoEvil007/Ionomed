@@ -1282,6 +1282,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated 
               <span className={`badge ${item.priority}`}>{item.priority}</span>
               <strong>{item.disorder}</strong>
               <small>Severidad: {item.severity || "no definida"}</small>
+              {item.note && <small>{item.note}</small>}
             </div>
           ))}
         </div>
