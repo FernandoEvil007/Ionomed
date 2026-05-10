@@ -1608,20 +1608,20 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
         <label>Nombre o código del paciente<input value={form.nameOrCode || ""} onChange={(e) => update("nameOrCode", e.target.value)} required /></label>
         <label>Identificación local<input value={form.localIdentifier || ""} onChange={(e) => update("localIdentifier", e.target.value)} /></label>
       </div>
-      <div className="grid three">
-        <label>Edad <small>opcional</small><input type="number" value={form.age || ""} onChange={(e) => update("age", e.target.value)} /></label>
+      <div className="grid three patient-demographics-grid">
+        <label>Edad<input type="number" value={form.age || ""} onChange={(e) => update("age", e.target.value)} /></label>
         <label>Sexo
           <select value={form.sex} onChange={(e) => update("sex", e.target.value)}>
             <option value="male">Masculino</option>
             <option value="female">Femenino</option>
           </select>
         </label>
-        <label>Peso kg <small>opcional, habilita ACT y deficits</small><input type="number" step="0.1" value={form.weightKg || ""} onChange={(e) => update("weightKg", e.target.value)} /></label>
+        <label>Peso kg<input type="number" step="0.1" value={form.weightKg || ""} onChange={(e) => update("weightKg", e.target.value)} /></label>
       </div>
       </FormSection>
 
       <FormSection title="2. Contexto clínico" summary="Área, volemia, acceso y diuresis" open>
-      <div className="grid three">
+      <div className="grid three clinical-context-grid">
         <label>Área clínica
           <select value={form.clinicalArea} onChange={(e) => update("clinicalArea", e.target.value)}>
             <option value="urgencias">Urgencias</option>
@@ -1649,9 +1649,11 @@ function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
           </select>
         </label>
       </div>
-      <label>Ubicación<input value={form.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="UCI, piso, urgencias..." /></label>
-      <label>Diuresis mL/kg/h<input type="number" step="0.01" value={form.urineOutputMlKgH || ""} onChange={(e) => update("urineOutputMlKgH", e.target.value)} /></label>
-      <label className="check-item inline-check"><input type="checkbox" checked={form.oralRouteAvailable} onChange={(e) => update("oralRouteAvailable", e.target.checked)} /> Vía oral disponible</label>
+      <div className="grid three clinical-context-extra">
+        <label>Ubicación<input value={form.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="UCI, piso, urgencias..." /></label>
+        <label>Diuresis mL/kg/h<input type="number" step="0.01" value={form.urineOutputMlKgH || ""} onChange={(e) => update("urineOutputMlKgH", e.target.value)} /></label>
+        <label className="check-item inline-check"><input type="checkbox" checked={form.oralRouteAvailable} onChange={(e) => update("oralRouteAvailable", e.target.checked)} /> Vía oral disponible</label>
+      </div>
       </FormSection>
 
       <FormSection title="3. Riesgos clínicos" summary="Toca cada grupo solo si aplica">

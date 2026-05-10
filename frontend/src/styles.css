@@ -135,6 +135,8 @@ button { cursor: pointer; }
 .grid { display: grid; gap: 14px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.patient-demographics-grid { grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(90px, 0.9fr); }
+.clinical-context-extra { grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.8fr) max-content; align-items: end; }
 
 .card, .summary-card {
   background: var(--surface);
@@ -1497,6 +1499,9 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 
 @media (max-width: 850px) {
   .auth-card, .grid.two, .grid.three, .dashboard-grid, .dashboard-grid.compact { grid-template-columns: 1fr; }
+  .patient-demographics-grid { grid-template-columns: minmax(72px, 0.72fr) minmax(108px, 1fr) minmax(82px, 0.82fr); }
+  .clinical-context-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .clinical-context-extra { grid-template-columns: minmax(150px, 1.25fr) minmax(108px, 0.85fr) max-content; }
   .dashboard-hero { grid-template-columns: 1fr; gap: 8px; }
   .topbar { padding: 8px 10px; align-items: center; }
   .topbar-actions { justify-content: flex-end; }
@@ -1654,6 +1659,31 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     padding: 9px;
     gap: 9px;
   }
+  .patient-demographics-grid,
+  .clinical-context-grid,
+  .clinical-context-extra {
+    gap: 7px;
+  }
+  .patient-demographics-grid label,
+  .clinical-context-grid label,
+  .clinical-context-extra label {
+    font-size: 0.76rem;
+    gap: 3px;
+  }
+  .patient-demographics-grid input,
+  .patient-demographics-grid select,
+  .clinical-context-grid select,
+  .clinical-context-extra input {
+    min-height: 36px;
+    padding: 7px 8px;
+  }
+  .clinical-context-extra .inline-check {
+    min-height: 36px;
+    width: 100%;
+    justify-content: center;
+    align-content: center;
+    white-space: nowrap;
+  }
   .reposition-summary {
     padding: 9px;
     gap: 8px;
@@ -1769,6 +1799,13 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card, .summary-card { padding: 9px; }
   .check-grid.compact { grid-template-columns: 1fr; }
+  .clinical-context-grid,
+  .clinical-context-extra {
+    grid-template-columns: 1fr;
+  }
+  .patient-demographics-grid {
+    grid-template-columns: minmax(58px, 0.7fr) minmax(98px, 1fr) minmax(70px, 0.8fr);
+  }
   .dashboard-row {
     grid-template-columns: 1fr;
     align-items: start;
