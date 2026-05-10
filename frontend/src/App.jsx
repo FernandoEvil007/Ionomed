@@ -553,6 +553,7 @@ function MainApp({ session, onLogout }) {
       ...patient,
       latestLab: summary.latestLab || null,
       topOrder: summary.topOrder || null,
+      activeOrders: summary.activeOrders || (summary.topOrder ? [summary.topOrder] : []),
       activeOrderCount: summary.activeOrderCount || 0,
       riskPriority: summary.riskPriority || "baja"
     };
@@ -564,7 +565,8 @@ function MainApp({ session, onLogout }) {
       patient.localIdentifier,
       patient.location,
       patient.clinicalArea,
-      patient.topOrder?.disorder
+      patient.topOrder?.disorder,
+      ...(patient.activeOrders || []).map((order) => order.disorder)
     ].some((value) => String(value || "").toLowerCase().includes(search));
     const matchesFilter =
       patientFilter === "todos" ||
@@ -669,13 +671,14 @@ function MainApp({ session, onLogout }) {
                   <button className="patient-select" type="button" onClick={() => selectPatient(patient)}>
                     <span><strong>{patient.nameOrCode}</strong><small>{patient.age ? `${patient.age} años · ` : ""}{patient.clinicalArea}</small></span>
                     <PatientElectrolyteStrip lab={patient.latestLab} />
+                    <PatientDisorderList orders={patient.activeOrders || []} />
                     <span className="patient-clinical-meta">
-                      <small>{patient.topOrder?.disorder || "Sin alerta activa"}</small>
+                      <small>{patient.activeOrderCount ? `${patient.activeOrderCount} trastorno(s) activo(s)` : "Sin alerta activa"}</small>
                       <b>{patientControlSummary(patient)}</b>
                     </span>
                     {patient.topOrder && (
                       <span className="patient-solution-line">
-                        <small>Actual: {patientCurrentSolution(patient)}</small>
+                        <small>{patientCurrentSolutions(patient)}</small>
                       </span>
                     )}
                   </button>
@@ -2798,9 +2801,34 @@ function PatientElectrolyteStrip({ lab }) {
   );
 }
 
+function PatientDisorderList({ orders }) {
+  const visibleOrders = (orders || []).filter(Boolean).slice(0, 4);
+  if (!visibleOrders.length) return null;
+  return (
+    <span className="patient-disorders">
+      {visibleOrders.map((order) => (
+        <small className={`patient-disorder ${order.priority || ""}`} key={order._id || order.disorder}>
+          {order.disorder}
+        </small>
+      ))}
+    </span>
+  );
+}
+
 function patientCurrentSolution(patient) {
   const current = orderCurrentSolution(patient.topOrder || {});
   return current.rate ? `${current.solution} · ${current.rate}` : current.solution;
+}
+
+function patientCurrentSolutions(patient) {
+  const orders = patient.activeOrders?.length ? patient.activeOrders : (patient.topOrder ? [patient.topOrder] : []);
+  const solutions = orders
+    .map((order) => {
+      const current = orderCurrentSolution(order || {});
+      return current.rate ? `${order.disorder}: ${current.solution} ${current.rate}` : `${order.disorder}: ${current.solution}`;
+    })
+    .filter(Boolean);
+  return solutions.length ? solutions.join(" | ") : patientCurrentSolution(patient);
 }
 
 function orderCurrentSolution(order) {

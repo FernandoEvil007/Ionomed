@@ -844,6 +844,13 @@ export async function clinicalDashboard(institutionId) {
         ...patient,
         latestLab: latestLabByPatient.get(String(patient.id)) || null,
         topOrder: patientOrders[0] || null,
+        activeOrders: patientOrders.map((order) => ({
+          _id: order._id,
+          disorder: order.disorder,
+          severity: order.severity,
+          priority: order.priority,
+          safety: order.safety || null
+        })),
         activeOrderCount: patientOrders.length,
         riskPriority: patientOrders[0]?.priority || "baja"
       };
