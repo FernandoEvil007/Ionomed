@@ -421,6 +421,15 @@ function MainApp({ session, onLogout }) {
     return { details, orders };
   }
 
+  async function evaluateLatestPatientLab(details) {
+    const latestLab = latestPatientLab(details?.labs || []);
+    if (!details?.patient || !latestLab) return null;
+    return api("/clinical/evaluate", {
+      method: "POST",
+      body: JSON.stringify({ patient: cleanPayload(details.patient), lab: cleanPayload(latestLab) })
+    });
+  }
+
   function resetForms() {
     setPatientForm(initialPatient);
     setLabForm(initialLab);
@@ -473,11 +482,12 @@ function MainApp({ session, onLogout }) {
     setMessage("");
     try {
       await api(`/patients/${selectedPatient._id}/labs/${lab._id}`, { method: "DELETE" });
-      setEvaluation(null);
-      await loadPatientDetails(selectedPatient._id);
+      const data = await loadPatientDetails(selectedPatient._id);
+      const latestEvaluation = await evaluateLatestPatientLab(data.details);
+      setEvaluation(latestEvaluation);
       await loadPatients();
       await loadDashboard();
-      setMessage("Control borrado. Ingresa nuevamente el valor correcto para recalcular.");
+      setMessage(latestEvaluation ? "Control borrado. Resultado actualizado con el ultimo laboratorio disponible." : "Control borrado. Ingresa nuevamente el valor correcto para recalcular.");
     } catch (err) {
       setError(err.message);
     }
@@ -496,12 +506,19 @@ function MainApp({ session, onLogout }) {
   }
 
   async function selectPatient(patient) {
+    setError("");
     setSelectedPatient(patient);
     setPatientForm({ ...initialPatient, ...patient });
     setEvaluation(null);
-    const data = await loadPatientDetails(patient._id);
-    setTab(data.details?.labs?.length ? "resultado" : "laboratorio");
-    setPatientPanelOpen(false);
+    try {
+      const data = await loadPatientDetails(patient._id);
+      const latestEvaluation = await evaluateLatestPatientLab(data.details);
+      setEvaluation(latestEvaluation);
+      setTab(data.details?.labs?.length ? "resultado" : "laboratorio");
+      setPatientPanelOpen(false);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   async function deletePatient(patient) {
@@ -2721,6 +2738,16 @@ function display(value, suffix) {
   return suffix ? `${value} ${suffix}` : value;
 }
 
+function latestPatientLab(labs = []) {
+  return [...labs].sort((a, b) => new Date(b.collectedAt || b.createdAt || 0) - new Date(a.collectedAt || a.createdAt || 0))[0] || null;
+}
+
+function electrolyteState(item) {
+  const numericValue = Number(item.value);
+  if (!Number.isFinite(numericValue)) return "normal";
+  return numericValue < item.low || numericValue > item.high ? "altered" : "normal";
+}
+
 function priorityShortLabel(priority) {
   return {
     critica: "Critico",
@@ -2747,17 +2774,19 @@ function PatientElectrolyteStrip({ lab }) {
     { label: "Na", value: lab?.sodium, low: 135, high: 145 },
     { label: "K", value: lab?.potassium, low: 3.5, high: 5.0 },
     { label: "Cl", value: lab?.chloride, low: 98, high: 106 },
+    { label: "Mg", value: lab?.magnesium, low: 1.6, high: 2.6 },
     { label: "Ca", value: lab?.calciumIonized ?? lab?.calciumTotal, low: lab?.calciumIonized ? 1.12 : 8.5, high: lab?.calciumIonized ? 1.32 : 10.5 },
     { label: "P", value: lab?.phosphorus, low: 2.0, high: 4.5 }
-  ].filter((item) => item.value !== undefined && item.value !== null && item.value !== "");
+  ]
+    .filter((item) => item.value !== undefined && item.value !== null && item.value !== "")
+    .filter((item) => electrolyteState(item) === "altered");
 
   if (!items.length) return null;
 
   return (
     <span className="patient-electrolytes">
       {items.map((item) => {
-        const numericValue = Number(item.value);
-        const state = Number.isFinite(numericValue) && (numericValue < item.low || numericValue > item.high) ? "altered" : "normal";
+        const state = electrolyteState(item);
         return (
           <span className={`patient-electrolyte ${state}`} key={item.label}>
             <small>{item.label}</small>
