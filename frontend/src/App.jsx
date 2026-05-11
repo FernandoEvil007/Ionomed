@@ -790,8 +790,6 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pendingBackup, setPendingBackup] = useState(null);
-  const [backupPreview, setBackupPreview] = useState(null);
   const filteredDisorders = solutionDisordersByElectrolyte[solutionForm.electrolyte] || [];
   const calculated = calculatedSolution(solutionForm);
 
@@ -1048,6 +1046,8 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingBackup, setPendingBackup] = useState(null);
+  const [backupPreview, setBackupPreview] = useState(null);
 
   useEffect(() => {
     loadSettings();
