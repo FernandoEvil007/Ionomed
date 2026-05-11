@@ -185,7 +185,7 @@ export function LabForm({ form, setForm, onSubmit, selectedPatient }) {
   );
 }
 
-function Num({ label, value, onChange, min, max }) {
+export function Num({ label, value, onChange, min, max }) {
   return <label>{label}<input type="number" step="0.01" min={min} max={max} value={value || ""} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 

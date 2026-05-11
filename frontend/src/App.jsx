@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Activity, ChevronDown, ClipboardCopy, Download, Droplets, FileText, FlaskConical, LogOut, Moon, MoreHorizontal, Plus, Search, Save, ShieldAlert, Stethoscope, Sun, Trash2, Upload, UserRound } from "lucide-react";
 import { api, apiDownload, clearSession, readSession, setSession } from "./api";
 import { AuthScreen } from "./components/AuthScreen";
-import { FormSection, LabForm, PatientForm } from "./components/ClinicalForms";
+import { FormSection, LabForm, Num, PatientForm } from "./components/ClinicalForms";
 import { DashboardPanels, MobileDashboardPanels, SelectedPatientTreatmentPanel } from "./components/DashboardPanels";
 import { ResultPanel } from "./components/ResultPanel";
 import { emptySolutionForm, initialLab, initialPatient, professionalRoles } from "./clinicalFormData";
