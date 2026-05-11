@@ -2892,9 +2892,9 @@ function PatientElectrolyteStrip({ lab }) {
     { label: "Na", value: lab?.sodium, low: 135, high: 145 },
     { label: "K", value: lab?.potassium, low: 3.5, high: 5.0 },
     { label: "Cl", value: lab?.chloride, low: 98, high: 106 },
-    { label: "Mg", value: lab?.magnesium, low: 1.6, high: 2.6 },
+    { label: "Mg", value: lab?.magnesium, low: 1.8, high: 2.6 },
     { label: "Ca", value: lab?.calciumIonized ?? lab?.calciumTotal, low: lab?.calciumIonized ? 1.12 : 8.5, high: lab?.calciumIonized ? 1.32 : 10.5 },
-    { label: "P", value: lab?.phosphorus, low: 2.0, high: 4.5 }
+    { label: "P", value: lab?.phosphorus, low: 2.5, high: 4.5 }
   ]
     .filter((item) => item.value !== undefined && item.value !== null && item.value !== "")
     .filter((item) => electrolyteState(item) === "altered");

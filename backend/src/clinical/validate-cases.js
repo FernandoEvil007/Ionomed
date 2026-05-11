@@ -75,16 +75,52 @@ const cases = [
     expect: "Hipomagnesemia"
   },
   {
+    name: "Hipomagnesemia leve",
+    patient: basePatient,
+    lab: { magnesium: 1.6, creatinine: 0.9 },
+    expect: "Hipomagnesemia leve"
+  },
+  {
+    name: "Hipermagnesemia severa",
+    patient: basePatient,
+    lab: { magnesium: 12.5, creatinine: 2.2 },
+    expect: "Hipermagnesemia severa"
+  },
+  {
     name: "Hipofosfatemia con riesgo de realimentacion",
     patient: { ...basePatient, comorbidities: ["sindrome_realimentacion"] },
     lab: { phosphorus: 1.1, potassium: 3.4, magnesium: 1.7, calciumTotal: 8.5, creatinine: 0.9 },
     expect: "Hipofosfatemia"
   },
   {
+    name: "Hipofosfatemia leve",
+    patient: basePatient,
+    lab: { phosphorus: 2.3, creatinine: 0.9 },
+    expect: "Hipofosfatemia leve"
+  },
+  {
+    name: "Hiperfosfatemia severa",
+    patient: basePatient,
+    lab: { phosphorus: 7.2, creatinine: 2.1 },
+    expect: "Hiperfosfatemia severa"
+  },
+  {
     name: "Hipocalcemia severa",
     patient: basePatient,
     lab: { calciumTotal: 6.8, albumin: 4, magnesium: 1.9, phosphorus: 3.5, creatinine: 0.9 },
     expect: "Hipocalcemia"
+  },
+  {
+    name: "Hipocalcemia leve",
+    patient: basePatient,
+    lab: { calciumTotal: 8.3, albumin: 4, creatinine: 0.9 },
+    expect: "Hipocalcemia leve"
+  },
+  {
+    name: "Hipercalcemia severa desde 14",
+    patient: basePatient,
+    lab: { calciumTotal: 14, albumin: 4, phosphorus: 3.2, magnesium: 2, creatinine: 1 },
+    expect: "Hipercalcemia severa"
   },
   {
     name: "Hipercalcemia maligna",

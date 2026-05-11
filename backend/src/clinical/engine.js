@@ -557,10 +557,12 @@ function classifyMagnesium(patient, lab) {
   const mg = number(lab.magnesium);
   if (mg === null) return null;
   const risk = hasAny(patient.cardiovascularSymptoms || [], ["arritmia", "qt_prolongado"]) || hasAny(patient.neurologicSymptoms || [], ["convulsion"]);
-  if (mg < 1.2 || (mg < 1.6 && risk)) return { disorder: "Hipomagnesemia severa o sintomatica", severity: "severa", priority: "alta" };
-  if (mg < 1.6) return { disorder: "Hipomagnesemia", severity: "moderada", priority: "moderada" };
-  if (mg > 4) return { disorder: "Hipermagnesemia severa", severity: "severa", priority: "alta" };
-  if (mg > 2.6) return { disorder: "Hipermagnesemia", severity: "moderada", priority: "moderada" };
+  if (mg < 1.0 || (mg < 1.25 && risk)) return { disorder: "Hipomagnesemia severa o sintomatica", severity: "severa", priority: "alta" };
+  if (mg < 1.25) return { disorder: "Hipomagnesemia moderada", severity: "moderada", priority: "moderada" };
+  if (mg < 1.8) return { disorder: "Hipomagnesemia leve", severity: "leve", priority: "moderada" };
+  if (mg > 12) return { disorder: "Hipermagnesemia severa", severity: "severa", priority: "alta" };
+  if (mg >= 7) return { disorder: "Hipermagnesemia moderada", severity: "moderada", priority: "alta" };
+  if (mg > 2.6) return { disorder: "Hipermagnesemia leve", severity: "leve", priority: "moderada" };
   return null;
 }
 
@@ -569,9 +571,11 @@ function classifyPhosphorus(patient, lab) {
   if (p === null) return null;
   const severeContext = patient.clinicalArea === "uci" || hasAny(patient.comorbidities || [], ["sindrome_realimentacion", "rabdomiolisis"]);
   if (p < 1 || (severeContext && p < 1.5)) return { disorder: "Hipofosfatemia severa", severity: "severa", priority: "alta" };
-  if (p < 2.0) return { disorder: "Hipofosfatemia", severity: "moderada", priority: "moderada" };
-  if (p > 6) return { disorder: "Hiperfosfatemia severa", severity: "severa", priority: "alta" };
-  if (p > 4.5) return { disorder: "Hiperfosfatemia", severity: "moderada", priority: "moderada" };
+  if (p < 2.0) return { disorder: "Hipofosfatemia moderada", severity: "moderada", priority: "moderada" };
+  if (p < 2.5) return { disorder: "Hipofosfatemia leve", severity: "leve", priority: "moderada" };
+  if (p > 7.0) return { disorder: "Hiperfosfatemia severa", severity: "severa", priority: "alta" };
+  if (p > 5.5) return { disorder: "Hiperfosfatemia moderada", severity: "moderada", priority: "alta" };
+  if (p > 4.5) return { disorder: "Hiperfosfatemia leve", severity: "leve", priority: "moderada" };
   return null;
 }
 
@@ -581,13 +585,14 @@ function classifyCalcium(patient, lab, calculations) {
   const isIonized = Boolean(number(lab.calciumIonized));
   const value = Number(ca);
   const malignantContext = hasAny(patient.comorbidities || [], ["cancer_activo", "cancer_metastasico", "mieloma_multiple", "linfoma", "leucemia", "metastasis_oseas", "hipercalcemia_maligna_previa"]);
-  if (!isIonized && malignantContext && value > 14) return { disorder: "Hipercalcemia maligna severa", severity: "severa", priority: "critica" };
+  if (!isIonized && malignantContext && value >= 14) return { disorder: "Hipercalcemia maligna severa", severity: "severa", priority: "critica" };
   if (!isIonized && malignantContext && value >= 12) return { disorder: "Hipercalcemia maligna probable", severity: "moderada", priority: "alta" };
-  if (!isIonized && value > 14) return { disorder: "Hipercalcemia severa", severity: "severa", priority: "critica" };
+  if (!isIonized && value >= 14) return { disorder: "Hipercalcemia severa", severity: "severa", priority: "critica" };
   if (!isIonized && value >= 12) return { disorder: "Hipercalcemia moderada", severity: "moderada", priority: "alta" };
-  if (!isIonized && value > 10.5) return { disorder: "Hipercalcemia leve", severity: "leve", priority: "moderada" };
+  if (!isIonized && value >= 10.5) return { disorder: "Hipercalcemia leve", severity: "leve", priority: "moderada" };
   if (!isIonized && value < 7.5) return { disorder: "Hipocalcemia severa", severity: "severa", priority: "alta" };
-  if (!isIonized && value < 8.5) return { disorder: "Hipocalcemia", severity: "moderada", priority: "moderada" };
+  if (!isIonized && value < 8.0) return { disorder: "Hipocalcemia moderada", severity: "moderada", priority: "moderada" };
+  if (!isIonized && value < 8.5) return { disorder: "Hipocalcemia leve", severity: "leve", priority: "moderada" };
   return null;
 }
 
