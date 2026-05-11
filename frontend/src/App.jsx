@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Activity, ChevronDown, ClipboardCopy, Download, Droplets, LogOut, Moon, Plus, Search, Save, ShieldAlert, Stethoscope, Sun, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, ChevronDown, ClipboardCopy, Download, Droplets, FileText, FlaskConical, LogOut, Moon, MoreHorizontal, Plus, Search, Save, ShieldAlert, Stethoscope, Sun, Trash2, Upload, UserRound } from "lucide-react";
 import { api, apiDownload, clearSession, readSession, setSession } from "./api";
 import { ClinicalResultSummary } from "./components/ClinicalResultSummary";
 import { ClinicalRangesPanel } from "./components/ClinicalRangesPanel";
@@ -355,6 +355,7 @@ function MainApp({ session, onLogout }) {
   const [error, setError] = useState("");
   const [tab, setTab] = useState("nuevo");
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef(null);
   const [patientSearch, setPatientSearch] = useState("");
   const [patientFilter, setPatientFilter] = useState("todos");
   const [patientPanelOpen, setPatientPanelOpen] = useState(false);
@@ -382,6 +383,15 @@ function MainApp({ session, onLogout }) {
     loadDashboard();
     loadInstitutionSettings();
   }, []);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return undefined;
+    const closeMenu = (event) => {
+      if (!moreMenuRef.current?.contains(event.target)) setMoreMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    return () => document.removeEventListener("pointerdown", closeMenu);
+  }, [moreMenuOpen]);
 
   useEffect(() => {
     const handler = (event) => {
@@ -722,11 +732,31 @@ function MainApp({ session, onLogout }) {
           <section className="card workspace-card">
             {tab !== "soluciones" && <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />}
             <div className="tabs app-tabs">
-              <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => selectTab("nuevo")}>Paciente</button>
-              <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => selectTab("laboratorio")}>Labs</button>
-              <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => selectTab("resultado")}>Resultado</button>
-              <div className="more-tab">
-                <button className={`tab ${moreTabActive ? "active" : ""}`} onClick={() => setMoreMenuOpen((value) => !value)} type="button">Más</button>
+              <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => selectTab("nuevo")} type="button">
+                <UserRound size={16} />
+                <span>Paciente</span>
+              </button>
+              <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => selectTab("laboratorio")} type="button">
+                <FlaskConical size={16} />
+                <span>Labs</span>
+              </button>
+              <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => selectTab("resultado")} type="button">
+                <FileText size={16} />
+                <span>Resultado</span>
+              </button>
+              <div className="more-tab" ref={moreMenuRef}>
+                <button
+                  className={`tab ${moreTabActive ? "active" : ""}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMoreMenuOpen((value) => !value);
+                  }}
+                  type="button"
+                  aria-expanded={moreMenuOpen}
+                >
+                  <MoreHorizontal size={16} />
+                  <span>Más</span>
+                </button>
                 {moreMenuOpen && (
                   <div className="more-menu">
                     {moreTabs.map(([value, label]) => (
@@ -1888,6 +1918,7 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         electrolyteCount={activeElectrolytes.size}
         orderCount={orders.length}
       />
+      <MobileQuickResult orders={orders} />
       <FollowUpPanel followUp={evaluation.followUp} />
       <RepositionSummary orders={orders} />
 
@@ -1945,6 +1976,55 @@ function PatientHistorySection({ labs, orders, onDeleteLab, open = false }) {
       <Timeline labs={labs} orders={orders} />
     </FormSection>
   );
+}
+
+function MobileQuickResult({ orders }) {
+  if (!orders?.length) return null;
+  return (
+    <section className="mobile-quick-result" aria-label="Resumen rápido de reposiciones">
+      {orders.map((order, idx) => {
+        const current = orderCurrentSolution(order);
+        const safety = order.safety || {};
+        const route = safety.recommendedAccess || safety.access || safety.route || safety.selectedRoute || "Vía por definir";
+        const control = order.controls?.[0] || "Control según evolución";
+        const value = orderDisplayValue(order);
+        return (
+          <article className="mobile-quick-card" key={order._id || `${order.disorder}-${idx}`}>
+            <span>
+              <small>{order.disorder}</small>
+              <strong>{value}</strong>
+            </span>
+            <div>
+              <b>{current.solution}</b>
+              <small>{current.rate || "Velocidad por definir"} · {route} · {control}</small>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function orderDisplayValue(order) {
+  const safety = order?.safety || {};
+  const key = disorderKey(order?.disorder);
+  const valueByKey = {
+    sodio: safety.sodiumCorrected ?? safety.sodiumMeasured ?? safety.sodium,
+    potasio: safety.potassium,
+    calcio: safety.calciumCorrected ?? safety.calcium ?? safety.calciumTotal,
+    magnesio: safety.magnesium,
+    fosforo: safety.phosphorus
+  };
+  const unitByKey = {
+    sodio: "mmol/L",
+    potasio: "mmol/L",
+    calcio: "mg/dL",
+    magnesio: "mg/dL",
+    fosforo: "mg/dL"
+  };
+  const value = valueByKey[key];
+  if (value === undefined || value === null || value === "") return "Activo";
+  return `${value} ${unitByKey[key] || ""}`.trim();
 }
 
 function RepositionSummary({ orders }) {

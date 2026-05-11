@@ -723,6 +723,10 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .tab {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 8px 11px;
   border-radius: 6px;
   background: transparent;
@@ -740,7 +744,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  z-index: 30;
+  z-index: 80;
   display: grid;
   gap: 5px;
   min-width: 150px;
@@ -957,6 +961,50 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   background: var(--surface);
   box-shadow: var(--shadow);
 }
+.mobile-quick-result {
+  display: none;
+}
+.mobile-quick-card {
+  display: grid;
+  grid-template-columns: minmax(74px, 0.34fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--brand-border);
+  border-radius: 8px;
+  background: var(--brand-soft);
+}
+.mobile-quick-card span,
+.mobile-quick-card div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mobile-quick-card small {
+  color: var(--subtle);
+  line-height: 1.2;
+}
+.mobile-quick-card span small {
+  overflow: hidden;
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mobile-quick-card strong {
+  color: var(--heading);
+  font-size: 0.98rem;
+  line-height: 1;
+}
+.mobile-quick-card b {
+  overflow: hidden;
+  color: var(--heading);
+  font-size: 0.78rem;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .clinical-result-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1028,6 +1076,9 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 }
 .ranges-header {
   padding: 12px;
+}
+.range-filter {
+  display: none;
 }
 .ranges-grid {
   display: grid;
@@ -1791,10 +1842,24 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .dashboard-row small { font-size: 0.74rem; line-height: 1.15; }
   .dashboard-row .badge { font-size: 0.68rem; padding: 3px 6px; }
   .patient-list { grid-template-columns: 1fr; }
-  .patient-row { align-items: stretch; padding: 6px; gap: 6px; }
+  .patient-row {
+    position: relative;
+    align-items: stretch;
+    padding: 6px 34px 6px 6px;
+    gap: 5px;
+  }
+  .patient-row > .icon-button.danger {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+    padding: 0;
+  }
   .patient-select { align-items: center; gap: 4px; padding: 2px; }
   .patient-disorders { width: 100%; grid-template-columns: repeat(auto-fit, minmax(70px, max-content)); gap: 3px; }
-  .patient-disorder { max-width: 92px; padding: 4px 5px; }
+  .patient-disorder { max-width: 84px; padding: 4px 5px; }
   .patient-disorder small { font-size: 0.52rem; }
   .patient-disorder strong { font-size: 0.84rem; }
   .patient-electrolytes { width: 100%; }
@@ -1868,6 +1933,10 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     padding: 9px;
     gap: 8px;
   }
+  .mobile-quick-result {
+    display: grid;
+    gap: 6px;
+  }
   .clinical-result-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
@@ -1885,6 +1954,42 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .reposition-card {
     padding: 9px;
     gap: 6px;
+  }
+  .range-filter {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .range-filter button {
+    min-height: 34px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 900;
+  }
+  .range-filter button.active {
+    border-color: var(--brand-border);
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .range-card-mobile-hidden {
+    display: none;
+  }
+  .ranges-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .range-card,
+  .ranges-header {
+    padding: 9px;
+  }
+  .range-row {
+    padding: 7px;
   }
   .order-brief {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1913,6 +2018,13 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   .form-actions .btn {
     flex: 1 1 150px;
   }
+  .form-actions {
+    position: sticky;
+    bottom: 72px;
+    z-index: 12;
+    padding-top: 6px;
+    background: linear-gradient(180deg, transparent, var(--surface) 28%);
+  }
   .quick-labs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -1932,6 +2044,23 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     padding: 8px;
     gap: 6px;
   }
+  .solution-admin-row {
+    align-items: start;
+    gap: 7px;
+    padding: 8px;
+  }
+  .solution-admin-row small {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .solution-admin-actions .btn {
+    min-height: 31px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+  }
   .check-item {
     padding: 7px 8px;
     gap: 6px;
@@ -1943,7 +2072,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     left: 8px;
     right: 8px;
     bottom: max(8px, env(safe-area-inset-bottom));
-    z-index: 20;
+    z-index: 100;
     margin: 0;
     padding: 7px;
     gap: 6px;
@@ -1952,15 +2081,30 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     background: var(--topbar);
     backdrop-filter: blur(16px);
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    overflow: visible;
   }
   .app-tabs .tab {
     flex: 1 1 0;
+    display: grid;
+    place-items: center;
+    gap: 2px;
     min-width: 0;
     min-height: 42px;
     padding: 9px 4px;
     border-radius: 10px;
     font-size: 0.76rem;
+    line-height: 1;
     text-align: center;
+  }
+  .app-tabs .tab svg {
+    width: 16px;
+    height: 16px;
+  }
+  .app-tabs .tab span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .app-tabs .more-tab {
     flex: 1 1 0;
@@ -1974,6 +2118,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     bottom: calc(100% + 8px);
     right: 0;
     min-width: 168px;
+    z-index: 120;
     box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
   }
   .workspace-card {
