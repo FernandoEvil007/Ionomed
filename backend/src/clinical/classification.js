@@ -21,8 +21,9 @@ export const clinicalRanges = [
       { disorder: "Hiponatremia leve", range: "130-134", severity: "leve" },
       { disorder: "Hiponatremia moderada", range: "120-129", severity: "moderada" },
       { disorder: "Hiponatremia profunda/severa", range: "<120 o sintomatica", severity: "severa" },
-      { disorder: "Hipernatremia", range: ">145", severity: "moderada" },
-      { disorder: "Hipernatremia severa", range: ">155", severity: "severa" }
+      { disorder: "Hipernatremia leve", range: "146-150", severity: "leve" },
+      { disorder: "Hipernatremia moderada", range: "151-159", severity: "moderada" },
+      { disorder: "Hipernatremia severa", range: ">=160", severity: "severa" }
     ]
   },
   {
@@ -84,8 +85,9 @@ export function classifySodium(patient, lab, calculations) {
   if (sodium < 120) return { disorder: "Hiponatremia profunda sin signos neurologicos", severity: "profunda", priority: "alta" };
   if (sodium < 130) return { disorder: "Hiponatremia moderada", severity: "moderada", priority: "alta" };
   if (sodium < 135) return { disorder: "Hiponatremia leve", severity: "leve", priority: "moderada" };
-  if (sodium > 155) return { disorder: "Hipernatremia severa", severity: "severa", priority: "alta" };
-  if (sodium > 145) return { disorder: "Hipernatremia", severity: "moderada", priority: "alta" };
+  if (sodium >= 160) return { disorder: "Hipernatremia severa", severity: "severa", priority: "alta" };
+  if (sodium >= 151) return { disorder: "Hipernatremia moderada", severity: "moderada", priority: "alta" };
+  if (sodium >= 146) return { disorder: "Hipernatremia leve", severity: "leve", priority: "moderada" };
   return null;
 }
 

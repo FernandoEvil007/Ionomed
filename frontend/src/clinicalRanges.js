@@ -7,8 +7,9 @@ export const clinicalRanges = [
       { disorder: "Hiponatremia leve", range: "130-134", severity: "leve" },
       { disorder: "Hiponatremia moderada", range: "120-129", severity: "moderada" },
       { disorder: "Hiponatremia profunda/severa", range: "<120 o sintomatica", severity: "severa" },
-      { disorder: "Hipernatremia", range: ">145", severity: "moderada" },
-      { disorder: "Hipernatremia severa", range: ">155", severity: "severa" }
+      { disorder: "Hipernatremia leve", range: "146-150", severity: "leve" },
+      { disorder: "Hipernatremia moderada", range: "151-159", severity: "moderada" },
+      { disorder: "Hipernatremia severa", range: ">=160", severity: "severa" }
     ]
   },
   {

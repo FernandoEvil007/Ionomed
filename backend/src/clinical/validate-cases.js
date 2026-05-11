@@ -32,7 +32,19 @@ const cases = [
     name: "Hipernatremia con deficit de agua libre",
     patient: basePatient,
     lab: { sodium: 156, glucose: 100, creatinine: 0.9 },
-    expect: "Hipernatremia"
+    expect: "Hipernatremia moderada"
+  },
+  {
+    name: "Hipernatremia leve",
+    patient: basePatient,
+    lab: { sodium: 148, glucose: 100, creatinine: 0.9 },
+    expect: "Hipernatremia leve"
+  },
+  {
+    name: "Hipernatremia severa desde 160",
+    patient: basePatient,
+    lab: { sodium: 160, glucose: 100, creatinine: 0.9 },
+    expect: "Hipernatremia severa"
   },
   {
     name: "Hipokalemia menor de 2",
