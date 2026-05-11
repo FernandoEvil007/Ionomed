@@ -354,12 +354,23 @@ function MainApp({ session, onLogout }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [tab, setTab] = useState("nuevo");
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [patientSearch, setPatientSearch] = useState("");
   const [patientFilter, setPatientFilter] = useState("todos");
   const [patientPanelOpen, setPatientPanelOpen] = useState(false);
 
   const isTraining = ["estudiante_medicina", "interno", "residente", "fellow"].includes(session.user?.professionalRole);
   const isAdmin = session.user?.accessRole === "admin";
+  const moreTabs = [
+    ["soluciones", "Soluciones"],
+    ["rangos", "Rangos"],
+    ...(isAdmin ? [["admin", "Admin"]] : [])
+  ];
+  const moreTabActive = moreTabs.some(([value]) => value === tab);
+  function selectTab(nextTab) {
+    setTab(nextTab);
+    setMoreMenuOpen(false);
+  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -703,12 +714,21 @@ function MainApp({ session, onLogout }) {
           <section className="card workspace-card">
             {tab !== "soluciones" && <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />}
             <div className="tabs app-tabs">
-              <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => setTab("nuevo")}>Paciente</button>
-              <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => setTab("laboratorio")}>Laboratorios</button>
-              <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => setTab("resultado")}>Resultado</button>
-              <button className={`tab ${tab === "soluciones" ? "active" : ""}`} onClick={() => setTab("soluciones")}>Soluciones</button>
-              <button className={`tab ${tab === "rangos" ? "active" : ""}`} onClick={() => setTab("rangos")}>Rangos</button>
-              {isAdmin && <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Admin</button>}
+              <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => selectTab("nuevo")}>Paciente</button>
+              <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => selectTab("laboratorio")}>Labs</button>
+              <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => selectTab("resultado")}>Resultado</button>
+              <div className="more-tab">
+                <button className={`tab ${moreTabActive ? "active" : ""}`} onClick={() => setMoreMenuOpen((value) => !value)} type="button">Más</button>
+                {moreMenuOpen && (
+                  <div className="more-menu">
+                    {moreTabs.map(([value, label]) => (
+                      <button key={value} type="button" className={tab === value ? "active" : ""} onClick={() => selectTab(value)}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             {tab === "nuevo" && <PatientForm form={patientForm} setForm={setPatientForm} onSubmit={createPatient} onEvaluate={evaluateWithoutSaving} />}
             {tab === "laboratorio" && <LabForm form={labForm} setForm={setLabForm} onSubmit={submitLab} selectedPatient={selectedPatient} />}
@@ -1843,14 +1863,10 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
         </div>
       </FormSection>
 
-      <section className="clinical-section">
-        <div>
-          <h2>Órdenes médicas sugeridas</h2>
-          <p>Cada reposición conserva auditoría de copia, edición, recálculo y estado final.</p>
-          <div className="result-actions compact">
-            <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
-            <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
-          </div>
+      <FormSection title="Órdenes médicas sugeridas" summary={`${orders.length} orden(es) lista(s) para revisar`} open>
+        <div className="result-actions compact">
+          <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
+          <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
         </div>
         {orders.map((order, idx) => (
           <OrderCard
@@ -1863,9 +1879,11 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
             settings={settings}
           />
         ))}
-      </section>
+      </FormSection>
 
-      <ClinicalValidationPanel />
+      <FormSection title="Validación y seguridad" summary="Escenarios críticos del motor">
+        <ClinicalValidationPanel embedded />
+      </FormSection>
 
       <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría">
         <LabTrendTable labs={patientDetails?.labs || []} onDeleteLab={onDeleteLab} />
@@ -1943,7 +1961,7 @@ function ClinicalWorkflow({ classifications, orders, labs }) {
   );
 }
 
-function ClinicalValidationPanel() {
+function ClinicalValidationPanel({ embedded = false }) {
   const cases = [
     ["Na 110 + síntomas neurológicos", "Bolo hipertónico, control estrecho y límite de corrección."],
     ["Na 122 hipovolémico", "Corrección con solución compatible, volemia y límite 12/24 h."],
@@ -1956,9 +1974,8 @@ function ClinicalValidationPanel() {
     ["Ca severo", "ECG, calcio corregido/ionizado y vigilancia renal/volémica."],
     ["Hipercalcemia maligna", "Hidratación, antirresortivo según función renal y oncología."]
   ];
-  return (
-    <FormSection title="Validación clínica interna" summary="Escenarios críticos del motor">
-      <div className="validation-grid">
+  const content = (
+    <div className="validation-grid">
         {cases.map(([title, detail]) => (
           <div className="validation-item" key={title}>
             <strong>{title}</strong>
@@ -1966,6 +1983,11 @@ function ClinicalValidationPanel() {
           </div>
         ))}
       </div>
+  );
+  if (embedded) return content;
+  return (
+    <FormSection title="Validación clínica interna" summary="Escenarios críticos del motor">
+      {content}
     </FormSection>
   );
 }
