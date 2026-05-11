@@ -1,4 +1,5 @@
 import { calculateAll, calculateHypokalemiaReplacement } from "./calculations.js";
+import { classifyAll } from "./classification.js";
 
 function hasAny(list = [], values = []) {
   const active = activeList(list);
@@ -525,77 +526,6 @@ function calciumFluidPlan(patient, classification, safety) {
   };
 }
 
-function classifySodium(patient, lab, calculations) {
-  const sodium = number(calculations.sodiumCorrected) ?? number(lab.sodium);
-  const neuro = activeList(patient.neurologicSymptoms || []).length > 0;
-  if (sodium === null) return null;
-  if (sodium < 120 && neuro) return { disorder: "Hiponatremia severa sintomatica", severity: "severa", priority: "critica" };
-  if (sodium < 120) return { disorder: "Hiponatremia profunda sin signos neurologicos", severity: "profunda", priority: "alta" };
-  if (sodium < 130) return { disorder: "Hiponatremia moderada", severity: "moderada", priority: "alta" };
-  if (sodium < 135) return { disorder: "Hiponatremia leve", severity: "leve", priority: "moderada" };
-  if (sodium > 155) return { disorder: "Hipernatremia severa", severity: "severa", priority: "alta" };
-  if (sodium > 145) return { disorder: "Hipernatremia", severity: "moderada", priority: "alta" };
-  return null;
-}
-
-function classifyPotassium(patient, lab, calculations) {
-  const k = number(lab.potassium);
-  if (k === null) return null;
-  const ecgRisk = hasAny(patient.cardiovascularSymptoms || [], ["arritmia", "cambios_ecg", "bradicardia"]);
-  const weakness = hasAny(patient.cardiovascularSymptoms || [], ["debilidad_muscular"]);
-  const renalAdvanced = calculations.egfr !== null && calculations.egfr < 30;
-  if (k < 2.5 || (k < 3.0 && (ecgRisk || weakness))) return { disorder: "Hipokalemia severa", severity: "severa", priority: "critica" };
-  if (k < 3.0) return { disorder: "Hipokalemia moderada", severity: "moderada", priority: "alta" };
-  if (k < 3.5) return { disorder: "Hipokalemia leve", severity: "leve", priority: "moderada" };
-  if (k > 6.0 || (k > 5.5 && ecgRisk) || (k > 5.6 && renalAdvanced)) return { disorder: "Hiperkalemia severa", severity: "severa", priority: "critica" };
-  if (k > 5.5) return { disorder: "Hiperkalemia moderada", severity: "moderada", priority: "alta" };
-  if (k > 5.0) return { disorder: "Hiperkalemia leve", severity: "leve", priority: "moderada" };
-  return null;
-}
-
-function classifyMagnesium(patient, lab) {
-  const mg = number(lab.magnesium);
-  if (mg === null) return null;
-  const risk = hasAny(patient.cardiovascularSymptoms || [], ["arritmia", "qt_prolongado"]) || hasAny(patient.neurologicSymptoms || [], ["convulsion"]);
-  if (mg < 1.0 || (mg < 1.25 && risk)) return { disorder: "Hipomagnesemia severa o sintomatica", severity: "severa", priority: "alta" };
-  if (mg < 1.25) return { disorder: "Hipomagnesemia moderada", severity: "moderada", priority: "moderada" };
-  if (mg < 1.8) return { disorder: "Hipomagnesemia leve", severity: "leve", priority: "moderada" };
-  if (mg > 12) return { disorder: "Hipermagnesemia severa", severity: "severa", priority: "alta" };
-  if (mg >= 7) return { disorder: "Hipermagnesemia moderada", severity: "moderada", priority: "alta" };
-  if (mg > 2.6) return { disorder: "Hipermagnesemia leve", severity: "leve", priority: "moderada" };
-  return null;
-}
-
-function classifyPhosphorus(patient, lab) {
-  const p = number(lab.phosphorus);
-  if (p === null) return null;
-  const severeContext = patient.clinicalArea === "uci" || hasAny(patient.comorbidities || [], ["sindrome_realimentacion", "rabdomiolisis"]);
-  if (p < 1 || (severeContext && p < 1.5)) return { disorder: "Hipofosfatemia severa", severity: "severa", priority: "alta" };
-  if (p < 2.0) return { disorder: "Hipofosfatemia moderada", severity: "moderada", priority: "moderada" };
-  if (p < 2.5) return { disorder: "Hipofosfatemia leve", severity: "leve", priority: "moderada" };
-  if (p > 7.0) return { disorder: "Hiperfosfatemia severa", severity: "severa", priority: "alta" };
-  if (p > 5.5) return { disorder: "Hiperfosfatemia moderada", severity: "moderada", priority: "alta" };
-  if (p > 4.5) return { disorder: "Hiperfosfatemia leve", severity: "leve", priority: "moderada" };
-  return null;
-}
-
-function classifyCalcium(patient, lab, calculations) {
-  const ca = number(lab.calciumIonized) || calculations.calciumCorrected || number(lab.calciumTotal);
-  if (ca === null) return null;
-  const isIonized = Boolean(number(lab.calciumIonized));
-  const value = Number(ca);
-  const malignantContext = hasAny(patient.comorbidities || [], ["cancer_activo", "cancer_metastasico", "mieloma_multiple", "linfoma", "leucemia", "metastasis_oseas", "hipercalcemia_maligna_previa"]);
-  if (!isIonized && malignantContext && value >= 14) return { disorder: "Hipercalcemia maligna severa", severity: "severa", priority: "critica" };
-  if (!isIonized && malignantContext && value >= 12) return { disorder: "Hipercalcemia maligna probable", severity: "moderada", priority: "alta" };
-  if (!isIonized && value >= 14) return { disorder: "Hipercalcemia severa", severity: "severa", priority: "critica" };
-  if (!isIonized && value >= 12) return { disorder: "Hipercalcemia moderada", severity: "moderada", priority: "alta" };
-  if (!isIonized && value >= 10.5) return { disorder: "Hipercalcemia leve", severity: "leve", priority: "moderada" };
-  if (!isIonized && value < 7.5) return { disorder: "Hipocalcemia severa", severity: "severa", priority: "alta" };
-  if (!isIonized && value < 8.0) return { disorder: "Hipocalcemia moderada", severity: "moderada", priority: "moderada" };
-  if (!isIonized && value < 8.5) return { disorder: "Hipocalcemia leve", severity: "leve", priority: "moderada" };
-  return null;
-}
-
 function sodiumOrder(patient, lab, calculations, classification) {
   const alerts = [];
   const sodium = calculations.sodiumCorrected || lab.sodium;
@@ -1020,13 +950,7 @@ function calciumOrder(patient, lab, calculations, classification) {
 
 export function evaluateClinicalCase({ patient, lab, settings = {} }) {
   const calculations = calculateAll({ patient, lab, settings });
-  const classifications = [
-    classifyPotassium(patient, lab, calculations),
-    classifySodium(patient, lab, calculations),
-    classifyCalcium(patient, lab, calculations),
-    classifyMagnesium(patient, lab, calculations),
-    classifyPhosphorus(patient, lab, calculations)
-  ].filter(Boolean);
+  const classifications = classifyAll(patient, lab, calculations);
 
   const priorityWeight = { critica: 1, alta: 2, moderada: 3, leve: 4, baja: 5 };
   classifications.sort((a, b) => priorityWeight[a.priority] - priorityWeight[b.priority]);

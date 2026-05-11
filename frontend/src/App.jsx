@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Activity, ChevronDown, ClipboardCopy, Download, Droplets, LogOut, Moon, Plus, Search, Save, ShieldAlert, Stethoscope, Sun, Trash2, Upload } from "lucide-react";
 import { api, apiDownload, clearSession, readSession, setSession } from "./api";
+import { ClinicalResultSummary } from "./components/ClinicalResultSummary";
+import { ClinicalRangesPanel } from "./components/ClinicalRangesPanel";
 
 const professionalRoles = [
   ["estudiante_medicina", "Estudiante de medicina"],
@@ -705,6 +707,7 @@ function MainApp({ session, onLogout }) {
               <button className={`tab ${tab === "laboratorio" ? "active" : ""}`} onClick={() => setTab("laboratorio")}>Laboratorios</button>
               <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => setTab("resultado")}>Resultado</button>
               <button className={`tab ${tab === "soluciones" ? "active" : ""}`} onClick={() => setTab("soluciones")}>Soluciones</button>
+              <button className={`tab ${tab === "rangos" ? "active" : ""}`} onClick={() => setTab("rangos")}>Rangos</button>
               {isAdmin && <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Admin</button>}
             </div>
             {tab === "nuevo" && <PatientForm form={patientForm} setForm={setPatientForm} onSubmit={createPatient} onEvaluate={evaluateWithoutSaving} />}
@@ -720,6 +723,7 @@ function MainApp({ session, onLogout }) {
               />
             )}
             {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} isAdmin={isAdmin} onSettingsSaved={setInstitutionSettings} />}
+            {tab === "rangos" && <ClinicalRangesPanel />}
             {tab === "admin" && isAdmin && <AdminPanel initialSettings={institutionSettings} onSettingsSaved={setInstitutionSettings} />}
           </section>
         </section>
@@ -1792,6 +1796,9 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
   const calc = evaluation.calculations || {};
   const orders = activeClinicalOrders(evaluation.orders || [], orderHistory || []);
   const evaluationWithActiveOrders = { ...evaluation, orders };
+  const latestLab = patientDetails?.labs?.[0] || null;
+  const labText = latestLab ? formatShortDate(latestLab.collectedAt || latestLab.createdAt) : "Evaluacion no guardada";
+  const activeElectrolytes = new Set(orders.map((order) => disorderKey(order.disorder)));
   function downloadSummary() {
     const text = buildClinicalSummary(evaluationWithActiveOrders, patientDetails);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -1810,6 +1817,12 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
   return (
     <div className="result-panel">
       {(evaluation.globalAlerts || []).map((alert, idx) => <div className="alert red" key={idx}>{alert}</div>)}
+      <ClinicalResultSummary
+        labText={labText}
+        disorderCount={(evaluation.classifications || []).length}
+        electrolyteCount={activeElectrolytes.size}
+        orderCount={orders.length}
+      />
       <FollowUpPanel followUp={evaluation.followUp} />
       <RepositionSummary orders={orders} />
 
