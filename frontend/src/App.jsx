@@ -1995,10 +1995,13 @@ const sodiumSolutionOptions = [
 
 const electrolyteSolutionOptions = {
   potassiumPeripheral: [
-    { key: "kperipheral", label: "KCl periferico: 25 mL Katrol + 475 cc SSN 0.9%", concentration: 0.1, preparation: "Preparacion KCl periferico: mezclar 25 mL de Katrol con 475 cc de solucion salina 0.9%. No superar 8 mEq/h por via periferica." }
+    { key: "kperipheral-dad5", label: "KCl periferico en DAD 5%: 25 mL Katrol + 475 cc", concentration: 0.1, baseFluid: "dad5", preparation: "Preparacion KCl periferico en DAD 5%: mezclar 25 mL de Katrol con 475 cc de DAD 5%. No superar 8 mEq/h por via periferica." },
+    { key: "kperipheral-dad5-low", label: "KCl periferico bajo en DAD 5% 0.02 mEq/mL", concentration: 0.02, baseFluid: "dad5", preparation: "Preparacion KCl periferico bajo: agregar KCl a DAD 5% x 500 mL hasta concentracion final 0.02 mEq/mL. Calcular velocidad final en mEq/h." },
+    { key: "kperipheral", label: "KCl periferico: 25 mL Katrol + 475 cc SSN 0.9%", concentration: 0.1, baseFluid: "ssn09", preparation: "Preparacion KCl periferico: mezclar 25 mL de Katrol con 475 cc de solucion salina 0.9%. No superar 8 mEq/h por via periferica." }
   ],
   potassiumCentral: [
-    { key: "kcentral", label: "KCl central: 40 mL Katrol + 460 mL SSN 0.9%", concentration: 0.16, preparation: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Solo via central; no pasar por periferica. No superar 20 mEq/h por via central." }
+    { key: "kcentral-dad5", label: "KCl central en DAD 5%: 40 mL Katrol + 460 mL", concentration: 0.16, baseFluid: "dad5", preparation: "Preparacion KCl central en DAD 5%: mezclar 40 mL de Katrol con 460 mL de DAD 5%. Solo via central; no pasar por periferica. No superar 20 mEq/h por via central." },
+    { key: "kcentral", label: "KCl central: 40 mL Katrol + 460 mL SSN 0.9%", concentration: 0.16, baseFluid: "ssn09", preparation: "Preparacion KCl central: mezclar 40 mL de Katrol con 460 mL de solucion salina 0.9%. Solo via central; no pasar por periferica. No superar 20 mEq/h por via central." }
   ],
   magnesium: [
     { key: "mg4000", label: "Magnesio 4000 mg en 100 cc SSN 0.9%", totalDoseMg: 4000, hours: 24, rateMlH: 5, preparation: "Preparacion magnesio: mezclar 4000 mg de magnesio en 100 cc de solucion salina 0.9%. Pasar a 5 cc/h por bomba durante 24 horas." }
@@ -2067,8 +2070,14 @@ function institutionalOptions(settings = {}, disorder = "", route = "") {
       hours: optionalNumber(solution.hours) || 24,
       rateMlH: optionalNumber(solution.rateMlH),
       preparation: solution.preparation,
-      use: solution.use
+      use: solution.use,
+      baseFluid: solution.baseFluid
     }));
+}
+
+function isDextroseBasedSolution(solution = {}) {
+  const text = `${solution.baseFluid || ""} ${solution.label || ""} ${solution.preparation || ""}`.toLowerCase();
+  return text.includes("dad") || text.includes("dextrosa");
 }
 
 function ElectrolyteSolutionSelector({ order, calculations, onTextCalculated, settings }) {
@@ -2227,7 +2236,12 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
   if (disorder.includes("hipokalemia")) {
     const central = ["central", "picc"].includes(selectedRoute);
     const baseOptions = central ? electrolyteSolutionOptions.potassiumCentral : electrolyteSolutionOptions.potassiumPeripheral;
-    options = [...baseOptions, ...institutionalOptions(settings, disorder, selectedRoute).filter((solution) => Number.isFinite(solution.concentration))];
+    const sodium = Number(safety.sodiumCorrected ?? safety.sodiumMeasured);
+    const hasHypernatremia = Number.isFinite(sodium) && sodium > 145;
+    const institutionalPotassiumOptions = institutionalOptions(settings, disorder, selectedRoute)
+      .filter((solution) => Number.isFinite(solution.concentration));
+    const routeOptions = [...baseOptions, ...institutionalPotassiumOptions];
+    options = hasHypernatremia ? routeOptions.filter(isDextroseBasedSolution) : routeOptions;
     calculator = (solution) => {
       const maxPotassiumRate = central ? 20 : 8;
       const routeRateLimit = central ? 100 : (selectedRoute === "linea_media" ? 70 : 50);
@@ -2243,6 +2257,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
         : "Calculo de dosis: falta peso para estimar basal y total de potasio a reponer.";
       return [
         `Paciente con ${String(order.disorder || "hipokalemia").toLowerCase()} (K ${Number.isFinite(potassium) ? potassium : "no disponible"} mmol/L).`,
+        hasHypernatremia ? `Hipernatremia concomitante (Na ${sodium} mmol/L): se muestran soluciones de potasio con dextrosa como base para evitar carga adicional de sodio.` : "",
         replacementText,
         `Solucion escogida: ${solution.label}.`,
         solution.preparation,
@@ -2251,7 +2266,7 @@ function NonSodiumSolutionSelector({ order, onTextCalculated, settings }) {
         `Velocidad maxima calculada para esta via y solucion: ${Math.min(routeRateLimit, maxRateByConcentration)} mL/h, equivalente a ${maxMeqByRoute} mEq/h; limite absoluto ${maxPotassiumRate} mEq/h.`,
         central ? "Usar solo por via central/PICC; no pasar preparacion central por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica si la vena y el protocolo institucional lo permiten. No superar 8 mEq/h por via periferica.",
         "Solicitar potasio y magnesio de control segun intervalo indicado y ajustar segun resultado."
-      ];
+      ].filter(Boolean);
     };
   } else if (disorder.includes("hipomagnesemia")) {
     options = [...electrolyteSolutionOptions.magnesium, ...institutionalOptions(settings, disorder, selectedRoute)];

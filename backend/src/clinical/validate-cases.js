@@ -56,6 +56,13 @@ const cases = [
     expectSafety: { potassiumBasalMeq: 70, potassiumDeficitMeq: 4, potassiumTotalReplacementMeq: 74 }
   },
   {
+    name: "Hipokalemia con hipernatremia usa dextrosa",
+    patient: { ...basePatient, venousAccess: "periferico" },
+    lab: { sodium: 152, potassium: 2.8, magnesium: 1.9, creatinine: 0.9 },
+    expect: "Hipokalemia",
+    expectText: "DAD 5%"
+  },
+  {
     name: "Hiperkalemia mayor de 6.5",
     patient: basePatient,
     lab: { potassium: 6.8, creatinine: 1.1 },
@@ -108,6 +115,15 @@ for (const clinicalCase of cases) {
     if (mismatches.length) {
       failures += 1;
       console.error(`FALLO: ${clinicalCase.name}. Seguridad esperada no coincide: ${mismatches.map(([key, value]) => `${key}=${value}, recibido ${safety[key]}`).join("; ")}`);
+      continue;
+    }
+    console.log(`OK: ${clinicalCase.name}`);
+  } else if (clinicalCase.expectText) {
+    const order = evaluation.orders.find((item) => item.disorder.includes(clinicalCase.expect));
+    const text = `${order?.suggestedText || ""} ${order?.safety?.selectedInfusion || ""}`;
+    if (!text.includes(clinicalCase.expectText)) {
+      failures += 1;
+      console.error(`FALLO: ${clinicalCase.name}. Texto esperado no encontrado: ${clinicalCase.expectText}`);
       continue;
     }
     console.log(`OK: ${clinicalCase.name}`);

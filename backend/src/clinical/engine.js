@@ -371,7 +371,11 @@ function ecgRecommendation(disorder) {
 
 function potassiumFluidPlan(patient, classification, safety) {
   if (classification.disorder.includes("Hipokalemia")) {
-    const availableInfusions = "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%; KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%";
+    const hypernatremia = (number(safety.sodiumCorrected) ?? number(safety.sodiumMeasured)) > 145;
+    const baseFluid = hypernatremia ? "DAD 5%" : "SSN 0.9%";
+    const availableInfusions = hypernatremia
+      ? "KCl periferico en DAD 5%: 25 mL de Katrol + 475 cc de DAD 5%; KCl central en DAD 5%: 40 mL de Katrol + 460 mL de DAD 5%"
+      : "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%; KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%";
     const centralRequired = safety.potassium < 2 && classification.severity === "severa";
     const centralPreferred = safety.potassium < 2.5;
     const central = safety.centralAccess || centralRequired || centralPreferred;
@@ -393,9 +397,11 @@ function potassiumFluidPlan(patient, classification, safety) {
       : "Calculo de dosis: falta peso para estimar basal y total de potasio a reponer. ";
     const potassiumInfusionType = central ? "infusion de potasio central" : "infusion de potasio periferica";
     const selectedInfusion = central
-      ? "KCl central: 40 mL de Katrol + 460 mL de SSN 0.9%"
-      : "KCl periferico: 25 mL de Katrol + 475 cc de SSN 0.9%";
-    const preparationText = central ? solutionPreparation.potassiumCentral : solutionPreparation.potassiumPeripheral;
+      ? `KCl central: 40 mL de Katrol + 460 mL de ${baseFluid}`
+      : `KCl periferico: 25 mL de Katrol + 475 cc de ${baseFluid}`;
+    const preparationText = hypernatremia
+      ? `Preparacion KCl ${central ? "central" : "periferico"} en DAD 5%: mezclar ${central ? "40 mL" : "25 mL"} de Katrol con ${central ? "460 mL" : "475 cc"} de DAD 5%. ${central ? "Usar solo por via central; no pasar por periferica. No superar 20 mEq/h por via central." : "Usar por via periferica con bomba; no superar 8 mEq/h por via periferica."}`
+      : (central ? solutionPreparation.potassiumCentral : solutionPreparation.potassiumPeripheral);
     return {
       continuousFluid: potassiumInfusionType,
       continuousRate: infusionRateMlH,
@@ -412,7 +418,7 @@ function potassiumFluidPlan(patient, classification, safety) {
       infusionRateMlH,
       maxInfusionRateMlH,
       availableInfusions,
-      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${replacementText}${preparationText} Concentracion final calculada: ${concentrationMeqMl} mEq/mL. Pasar a ${infusionRateMlH} mL/h por bomba: ${infusionRateMlH} mL/h x ${concentrationMeqMl} mEq/mL = ${potassiumRateMeqH} mEq/h de potasio. Para esta via y concentracion, velocidad maxima calculada: ${maxInfusionRateMlH} mL/h, equivalente a ${maxPotassiumRateBySelectedRouteMeqH} mEq/h; limite absoluto ${maxPotassiumRateMeqH} mEq/h. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. ${estimatedInfusionHours ? `Duracion estimada ${estimatedInfusionHours} horas para la dosis total calculada. ` : ""}Ajustar o suspender al recibir control de potasio.`,
+      text: `Liquidos continuos: usar ${potassiumInfusionType}. ${hypernatremia ? "Hipernatremia concomitante: preferir soluciones de potasio con dextrosa como liquido base y evitar carga adicional de sodio. " : ""}${replacementText}${preparationText} Concentracion final calculada: ${concentrationMeqMl} mEq/mL. Pasar a ${infusionRateMlH} mL/h por bomba: ${infusionRateMlH} mL/h x ${concentrationMeqMl} mEq/mL = ${potassiumRateMeqH} mEq/h de potasio. Para esta via y concentracion, velocidad maxima calculada: ${maxInfusionRateMlH} mL/h, equivalente a ${maxPotassiumRateBySelectedRouteMeqH} mEq/h; limite absoluto ${maxPotassiumRateMeqH} mEq/h. No superar 8 mEq/h por via periferica ni 20 mEq/h por via central. ${estimatedInfusionHours ? `Duracion estimada ${estimatedInfusionHours} horas para la dosis total calculada. ` : ""}Ajustar o suspender al recibir control de potasio.`,
       controls: [
         ...(centralRequired && !safety.centralAccess ? ["K menor de 2 mmol/L: cateter venoso central mandatorio antes de iniciar KCl central"] : []),
         ...(centralPreferred && !centralRequired && !safety.centralAccess ? ["K menor de 2.5 mmol/L: preferir via central; si no esta disponible, confirmar riesgo/beneficio antes de usar via periferica"] : []),
@@ -695,6 +701,8 @@ function potassiumSafety(patient, lab, calculations, classification) {
     : {};
   return {
     potassium: k,
+    sodiumMeasured: number(lab.sodium),
+    sodiumCorrected: calculations.sodiumCorrected,
     egfr: calculations.egfr,
     renalSevere,
     oliguria,
