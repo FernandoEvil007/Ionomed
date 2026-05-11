@@ -1,4 +1,5 @@
 import { evaluateClinicalCase } from "./engine.js";
+import { evaluationPatientSchema, labSchema } from "./inputSchemas.js";
 
 const basePatient = {
   nameOrCode: "Caso prueba",
@@ -143,6 +144,68 @@ const cases = [
 ];
 
 let failures = 0;
+
+const gasCases = [
+  {
+    name: "Gasometria detecta acidosis metabolica con compensacion apropiada",
+    lab: { ph: 7.25, pco2: 26, bicarbonate: 12, sodium: 140, chloride: 105, lactate: 5, albumin: 4, po2: 80, fio2: 21 },
+    expectPrimary: "acidosis metabolica",
+    expectCompensation: "apropiada",
+    expectOrder: "Acidosis metabolica gasometrica"
+  },
+  {
+    name: "Gasometria detecta trastorno mixto metabolico y respiratorio",
+    lab: { ph: 7.12, pco2: 55, bicarbonate: 17, sodium: 138, chloride: 100, albumin: 3, po2: 70, fio2: 40 },
+    expectPrimary: "trastorno mixto",
+    expectOrder: "Alteracion de oxigenacion gasometrica"
+  }
+];
+
+const schemaCases = [
+  {
+    name: "Schema rechaza sodio incompatible con vida",
+    ok: !labSchema.safeParse({ sodium: 15 }).success
+  },
+  {
+    name: "Schema rechaza potasio extremo",
+    ok: !labSchema.safeParse({ potassium: 42 }).success
+  },
+  {
+    name: "Schema no convierte campos vacios en cero",
+    ok: labSchema.safeParse({ sodium: "", potassium: "", creatinine: "" }).success
+  },
+  {
+    name: "Schema permite evaluacion preliminar sin paciente guardado",
+    ok: evaluationPatientSchema.safeParse({ age: "", weightKg: 70, sex: "male" }).success
+  }
+];
+
+for (const schemaCase of schemaCases) {
+  if (!schemaCase.ok) {
+    failures += 1;
+    console.error(`FALLO: ${schemaCase.name}`);
+  } else {
+    console.log(`OK: ${schemaCase.name}`);
+  }
+}
+
+for (const gasCase of gasCases) {
+  const evaluation = evaluateClinicalCase({
+    patient: basePatient,
+    lab: gasCase.lab,
+    settings: {}
+  });
+  const gas = evaluation.calculations.arterialGas;
+  const primaryOk = gas?.primaryDisorder?.includes(gasCase.expectPrimary);
+  const compensationOk = !gasCase.expectCompensation || gas?.compensationAssessment?.includes(gasCase.expectCompensation);
+  const orderOk = !gasCase.expectOrder || evaluation.orders.some((order) => order.disorder === gasCase.expectOrder);
+  if (!primaryOk || !compensationOk || !orderOk) {
+    failures += 1;
+    console.error(`FALLO: ${gasCase.name}. Recibido: ${gas?.primaryDisorder || "sin gas"} / ${gas?.compensationAssessment || "sin compensacion"}`);
+  } else {
+    console.log(`OK: ${gasCase.name}`);
+  }
+}
 
 for (const clinicalCase of cases) {
   const evaluation = evaluateClinicalCase({

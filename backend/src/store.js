@@ -221,7 +221,13 @@ export async function initStore() {
       urea REAL,
       bun REAL,
       ph REAL,
+      pco2 REAL,
+      po2 REAL,
+      baseExcess REAL,
       bicarbonate REAL,
+      lactate REAL,
+      fio2 REAL,
+      oxygenSaturation REAL,
       serumOsmolality REAL,
       urineOsmolality REAL,
       urineSodium REAL,
@@ -265,6 +271,7 @@ export async function initStore() {
     )
   `);
   await ensurePatientOptionalFields();
+  await ensureLabGasColumns();
   await ensureOrderClinicalColumns();
   await ensureUserRecoveryColumns();
 }
@@ -336,6 +343,16 @@ async function ensureOrderClinicalColumns() {
   if (!columns.has("safety")) await run("ALTER TABLE orders ADD COLUMN safety TEXT");
   if (!columns.has("missingData")) await run("ALTER TABLE orders ADD COLUMN missingData TEXT DEFAULT '[]'");
   if (!columns.has("controls")) await run("ALTER TABLE orders ADD COLUMN controls TEXT DEFAULT '[]'");
+}
+
+async function ensureLabGasColumns() {
+  const columns = new Set((await all("PRAGMA table_info(labs)")).map((column) => column.name));
+  if (!columns.has("pco2")) await run("ALTER TABLE labs ADD COLUMN pco2 REAL");
+  if (!columns.has("po2")) await run("ALTER TABLE labs ADD COLUMN po2 REAL");
+  if (!columns.has("baseExcess")) await run("ALTER TABLE labs ADD COLUMN baseExcess REAL");
+  if (!columns.has("lactate")) await run("ALTER TABLE labs ADD COLUMN lactate REAL");
+  if (!columns.has("fio2")) await run("ALTER TABLE labs ADD COLUMN fio2 REAL");
+  if (!columns.has("oxygenSaturation")) await run("ALTER TABLE labs ADD COLUMN oxygenSaturation REAL");
 }
 
 async function ensureUserRecoveryColumns() {
@@ -501,9 +518,10 @@ export async function createLab(data) {
     `INSERT INTO labs (
       institutionId, patientId, createdBy, collectedAt, sodium, potassium,
       chloride, magnesium, phosphorus, calciumTotal, calciumIonized, albumin,
-      glucose, creatinine, urea, bun, ph, bicarbonate, serumOsmolality,
+      glucose, creatinine, urea, bun, ph, pco2, po2, baseExcess, bicarbonate,
+      lactate, fio2, oxygenSaturation, serumOsmolality,
       urineOsmolality, urineSodium, urinePotassium, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.institutionId,
       data.patientId,
@@ -522,7 +540,13 @@ export async function createLab(data) {
       data.urea ?? null,
       data.bun ?? null,
       data.ph ?? null,
+      data.pco2 ?? null,
+      data.po2 ?? null,
+      data.baseExcess ?? null,
       data.bicarbonate ?? null,
+      data.lactate ?? null,
+      data.fio2 ?? null,
+      data.oxygenSaturation ?? null,
       data.serumOsmolality ?? null,
       data.urineOsmolality ?? null,
       data.urineSodium ?? null,

@@ -10,6 +10,31 @@ import {
 const router = express.Router();
 router.use(authRequired);
 
+function backupPreview(backup) {
+  if (!backup?.tables || typeof backup.tables !== "object") {
+    throw new Error("Backup invalido");
+  }
+  const tables = backup.tables;
+  const count = (table) => Array.isArray(tables[table]) ? tables[table].length : 0;
+  const institutions = Array.isArray(tables.institutions)
+    ? tables.institutions.slice(0, 5).map((item) => item.name).filter(Boolean)
+    : [];
+  return {
+    app: backup.app || "Desconocida",
+    version: backup.version ?? null,
+    database: backup.database || "desconocida",
+    createdAt: backup.createdAt || null,
+    institutions,
+    counts: {
+      institutions: count("institutions"),
+      users: count("users"),
+      patients: count("patients"),
+      labs: count("labs"),
+      orders: count("orders")
+    }
+  };
+}
+
 router.get("/settings", async (req, res) => {
   const institution = await findInstitutionById(req.user.institutionId);
   res.json({ settings: institution?.settings || {}, institution });
@@ -37,9 +62,21 @@ router.get("/backup", adminRequired, async (_req, res, next) => {
   }
 });
 
+router.post("/backup/preview", adminRequired, async (req, res, next) => {
+  try {
+    const backup = req.body?.tables ? req.body : req.body?.backup;
+    res.json({ preview: backupPreview(backup) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/backup/restore", adminRequired, async (req, res, next) => {
   try {
     const backup = req.body?.tables ? req.body : req.body?.backup;
+    if (req.body?.confirmRestore !== true) {
+      return res.status(400).json({ message: "Debes confirmar la restauracion del backup antes de continuar." });
+    }
     await restoreBackup(backup);
     res.json({ ok: true, message: "Backup restaurado correctamente" });
   } catch (error) {

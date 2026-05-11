@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { authRequired } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import {
   createInstitution,
   createUser,
@@ -22,6 +23,20 @@ export const PROFESSIONAL_ROLES = [
 ];
 
 const router = express.Router();
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  keyPrefix: "auth-login",
+  message: "Demasiados intentos de ingreso. Espera unos minutos antes de intentar nuevamente."
+});
+
+const recoveryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  keyPrefix: "auth-recovery",
+  message: "Demasiados intentos de recuperacion. Espera unos minutos antes de intentar nuevamente."
+});
 
 const registerSchema = z.object({
   fullName: z.string().min(3),
@@ -97,7 +112,7 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/login", loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await findUserByEmail(email);
@@ -114,7 +129,7 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
-router.post("/recovery-question", async (req, res, next) => {
+router.post("/recovery-question", recoveryLimiter, async (req, res, next) => {
   try {
     const { email } = recoveryQuestionSchema.parse(req.body);
     const user = await findUserByEmail(email);
@@ -128,7 +143,7 @@ router.post("/recovery-question", async (req, res, next) => {
   }
 });
 
-router.post("/reset-password", async (req, res, next) => {
+router.post("/reset-password", recoveryLimiter, async (req, res, next) => {
   try {
     const data = resetPasswordSchema.parse(req.body);
     const user = await findUserByEmail(data.email);

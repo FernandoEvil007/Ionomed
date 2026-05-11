@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import { ZodError } from "zod";
 import { DB_PATH, initStore } from "./store.js";
 import authRoutes from "./routes/auth.js";
 import patientRoutes from "./routes/patients.js";
@@ -14,6 +15,17 @@ import dashboardRoutes from "./routes/dashboard.js";
 const app = express();
 const apiRouter = express.Router();
 const port = process.env.PORT || 4000;
+
+function assertRuntimeSecrets() {
+  const secret = String(process.env.JWT_SECRET || "").trim();
+  const defaultSecret = "change_this_secret_in_production";
+  if (!secret) {
+    throw new Error("JWT_SECRET debe estar definido en backend/.env");
+  }
+  if (process.env.NODE_ENV === "production" && secret === defaultSecret) {
+    throw new Error("JWT_SECRET no puede usar el valor por defecto en produccion");
+  }
+}
 
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
@@ -36,10 +48,17 @@ app.use("/", apiRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      message: err.errors.map((item) => item.message).join(". ")
+    });
+  }
   res.status(err.status || 500).json({
     message: err.message || "Error interno del servidor"
   });
 });
+
+assertRuntimeSecrets();
 
 initStore()
   .then(() => {

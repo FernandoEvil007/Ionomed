@@ -1,4 +1,5 @@
 import { calculateCkdEpi2021, calculateCockcroftGault, classifyRenalFunction, calculateTotalBodyWater } from "./renal.js";
+import { interpretArterialBloodGas } from "./arterialGas.js";
 
 function round(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
@@ -121,6 +122,7 @@ export function calculateAll({ patient, lab, settings = {} }) {
   const sodium3ChangePerLiter = hypertonicSalineSodiumChangePerLiter({ sodium: sodiumCorrected || lab.sodium, totalBodyWater });
   const sodium3RateFor05 = hypertonicSalineRateMlHour({ targetRisePerHour: 0.5, sodium: sodiumCorrected || lab.sodium, totalBodyWater });
   const deficits = electrolyteDeficits({ patient, lab, sodiumCorrected, totalBodyWater });
+  const arterialGas = interpretArterialBloodGas({ patient, lab });
 
   return {
     egfr,
@@ -132,6 +134,7 @@ export function calculateAll({ patient, lab, settings = {} }) {
     calculatedSerumOsmolality: osmolality,
     sodium3ChangePerLiter,
     sodium3RateFor05,
+    arterialGas,
     ...deficits
   };
 }

@@ -1,154 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, ChevronDown, ClipboardCopy, Download, Droplets, FileText, FlaskConical, LogOut, Moon, MoreHorizontal, Plus, Search, Save, ShieldAlert, Stethoscope, Sun, Trash2, Upload, UserRound } from "lucide-react";
 import { api, apiDownload, clearSession, readSession, setSession } from "./api";
+import { AuthScreen } from "./components/AuthScreen";
+import { FormSection, LabForm, PatientForm } from "./components/ClinicalForms";
+import { DashboardPanels, MobileDashboardPanels, SelectedPatientTreatmentPanel } from "./components/DashboardPanels";
+import { ResultPanel } from "./components/ResultPanel";
+import { emptySolutionForm, initialLab, initialPatient, professionalRoles } from "./clinicalFormData";
 import { ClinicalResultSummary } from "./components/ClinicalResultSummary";
 import { ClinicalRangesPanel } from "./components/ClinicalRangesPanel";
-
-const professionalRoles = [
-  ["estudiante_medicina", "Estudiante de medicina"],
-  ["interno", "Interno"],
-  ["residente", "Residente"],
-  ["fellow", "Fellow"],
-  ["especialista", "Especialista"],
-  ["subespecialista", "Subespecialista"]
-];
-
-const comorbidities = [
-  ["ninguno", "Ninguno"],
-  ["erc", "Enfermedad renal crónica"],
-  ["lesion_renal_aguda", "Lesión renal aguda"],
-  ["hemodialisis", "Hemodiálisis"],
-  ["oliguria", "Oliguria"],
-  ["anuria", "Anuria"],
-  ["hipertension_arterial", "Hipertensión arterial"],
-  ["falla_cardiaca", "Falla cardiaca"],
-  ["arritmias", "Arritmias"],
-  ["qt_prolongado", "QT prolongado"],
-  ["hipotiroidismo", "Hipotiroidismo"],
-  ["hipertiroidismo", "Hipertiroidismo"],
-  ["alto_riesgo_sobrecarga", "Alto riesgo de sobrecarga"],
-  ["cirrosis", "Cirrosis"],
-  ["alcoholismo", "Alcoholismo"],
-  ["desnutricion", "Desnutrición"],
-  ["diabetes", "Diabetes mellitus"],
-  ["sindrome_realimentacion", "Síndrome de realimentación"],
-  ["cancer_activo", "Cáncer activo"],
-  ["cancer_metastasico", "Cáncer metastásico"],
-  ["mieloma_multiple", "Mieloma múltiple"],
-  ["linfoma", "Linfoma"],
-  ["leucemia", "Leucemia"],
-  ["metastasis_oseas", "Metástasis óseas"],
-  ["hipercalcemia_maligna_previa", "Hipercalcemia maligna previa"]
-];
-
-const medications = [
-  ["ninguno", "Ninguno"],
-  ["diuretico_asa", "Diurético de asa"],
-  ["tiazida", "Tiazida"],
-  ["ieca", "IECA"],
-  ["ara2", "ARA II"],
-  ["espironolactona", "Espironolactona"],
-  ["sglt2", "SGLT2"],
-  ["litio", "Litio"],
-  ["anfotericina", "Anfotericina B"],
-  ["cisplatino", "Cisplatino"],
-  ["insulina", "Insulina"],
-  ["bicarbonato", "Bicarbonato"],
-  ["suplemento_potasio", "Suplemento de potasio"],
-  ["calcio", "Calcio"],
-  ["vitamina_d", "Vitamina D"],
-  ["denosumab", "Denosumab"],
-  ["bisfosfonato", "Bisfosfonato"],
-  ["digoxina", "Digoxina"],
-  ["aines", "AINES"]
-];
-
-const neuroSymptoms = [
-  ["ninguno", "Ninguno"],
-  ["convulsion", "Convulsiones"],
-  ["coma", "Coma"],
-  ["alteracion_conciencia", "Alteración del estado de conciencia"],
-  ["somnolencia", "Somnolencia marcada"],
-  ["confusion", "Confusión aguda"],
-  ["delirium", "Delirium"],
-  ["cefalea_deterioro", "Cefalea con deterioro"],
-  ["vomito_neurologico", "Vómito con compromiso neurológico"],
-  ["edema_cerebral", "Sospecha de edema cerebral" ]
-];
-
-const cardioSymptoms = [
-  ["ninguno", "Ninguno"],
-  ["arritmia", "Arritmia"],
-  ["cambios_ecg", "Cambios en ECG"],
-  ["qt_prolongado", "QT prolongado"],
-  ["debilidad_muscular", "Debilidad muscular"],
-  ["dolor_toracico", "Dolor torácico"],
-  ["bradicardia", "Bradicardia" ]
-];
-
-const initialPatient = {
-  nameOrCode: "",
-  localIdentifier: "",
-  age: "",
-  sex: "male",
-  weightKg: "",
-  heightCm: "",
-  clinicalArea: "hospitalizacion",
-  location: "",
-  volumeStatus: "incierto",
-  oralRouteAvailable: true,
-  venousAccess: "desconocido",
-  urineOutputMlKgH: "",
-  comorbidities: [],
-  medications: [],
-  neurologicSymptoms: [],
-  cardiovascularSymptoms: []
-};
-
-const initialLab = {
-  collectedAt: new Date().toISOString().slice(0, 16),
-  sodium: "",
-  potassium: "",
-  chloride: "",
-  magnesium: "",
-  phosphorus: "",
-  calciumTotal: "",
-  calciumIonized: "",
-  albumin: "",
-  glucose: "",
-  creatinine: "",
-  urea: "",
-  bun: "",
-  ph: "",
-  bicarbonate: "",
-  serumOsmolality: "",
-  urineOsmolality: "",
-  urineSodium: "",
-  urinePotassium: "",
-  notes: ""
-};
-
-const emptySolutionForm = {
-  name: "",
-  disorder: "hipokalemia",
-  electrolyte: "potasio",
-  route: "periferico",
-  baseFluid: "ssn09",
-  finalVolumeMl: 500,
-  ampoules: 1,
-  ampouleMeq: 20,
-  preparation: "",
-  content: "",
-  use: "",
-  concentration: "",
-  mEqPerLiter: "",
-  sodium: "",
-  potassium: "",
-  totalDoseMg: "",
-  hours: "",
-  rateMlH: "",
-  active: true
-};
 
 const themeStorageKey = "ionomed-theme";
 
@@ -165,183 +24,8 @@ function App() {
   return <MainApp session={session} onLogout={() => { clearSession(); setLocalSession(readSession()); }} />;
 }
 
-function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState("login");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [recoveryQuestion, setRecoveryQuestion] = useState("");
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    newPassword: "",
-    securityQuestion: "",
-    securityAnswer: "",
-    documentId: "",
-    serviceArea: "",
-    professionalRole: "especialista",
-    institutionName: "",
-    institutionIdentifier: "",
-    institutionCity: ""
-  });
-
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-
-  useEffect(() => {
-    const handler = (event) => {
-      event.preventDefault();
-      setInstallPrompt(event);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-
-  async function installApp() {
-    if (installPrompt) {
-      installPrompt.prompt();
-      await installPrompt.userChoice.catch(() => null);
-      setInstallPrompt(null);
-      return;
-    }
-    setNotice("Para instalar IonoMed: abre el menu del navegador y elige Instalar app o Agregar a pantalla de inicio.");
-  }
-
-  async function submit(e) {
-    e.preventDefault();
-    setError("");
-    setNotice("");
-    setLoading(true);
-    try {
-      if (mode === "recover") {
-        if (!recoveryQuestion) {
-          const data = await api("/auth/recovery-question", {
-            method: "POST",
-            body: JSON.stringify({ email: form.email })
-          });
-          setRecoveryQuestion(data.question);
-          setNotice("Responde la pregunta para crear una contraseña nueva.");
-          return;
-        }
-
-        const data = await api("/auth/reset-password", {
-          method: "POST",
-          body: JSON.stringify({
-            email: form.email,
-            securityAnswer: form.securityAnswer,
-            newPassword: form.newPassword
-          })
-        });
-        setNotice(data.message || "Contraseña actualizada. Ya puedes ingresar.");
-        update("password", "");
-        update("newPassword", "");
-        update("securityAnswer", "");
-        setRecoveryQuestion("");
-        setMode("login");
-        return;
-      }
-
-      const path = mode === "login" ? "/auth/login" : "/auth/register";
-      const payload = mode === "login" ? { email: form.email, password: form.password } : form;
-      const data = await api(path, { method: "POST", body: JSON.stringify(payload) });
-      onLogin(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const switchMode = (nextMode) => {
-    setMode(nextMode);
-    setError("");
-    setNotice("");
-    setRecoveryQuestion("");
-  };
-  const authTitle = mode === "login" ? "Ingresar" : mode === "register" ? "Registro médico" : "Recuperar contraseña";
-  const authSubtitle = mode === "login"
-    ? "Accede a tu institución."
-    : mode === "register"
-      ? "Todo usuario debe especificar su rol profesional antes de usar la aplicación."
-      : "Usa tu pregunta de seguridad para crear una contraseña nueva.";
-
-  return (
-    <main className="auth-page app-shell">
-      <section className="auth-card">
-        <div className="auth-brand">
-          <div>
-            <div className="logo" style={{ color: "white" }}>
-              <div className="logo-mark"><Droplets /></div>
-              <div>IonoMed<small style={{ color: "rgba(255,255,255,.78)" }}>Soporte clínico electrolítico</small></div>
-            </div>
-            <h1>Órdenes médicas sugeridas, específicas y editables.</h1>
-            <p>Diseñado para estudiantes de medicina, internos, residentes, fellows, especialistas y subespecialistas.</p>
-          </div>
-          <div className="alert" style={{ background: "rgba(255,255,255,.14)", color: "white", borderColor: "rgba(255,255,255,.28)" }}>
-            IonoMed no reemplaza la valoración médica. Las recomendaciones deben interpretarse según el contexto clínico, protocolos institucionales y criterio del médico tratante.
-          </div>
-        </div>
-        <form className="auth-panel grid" onSubmit={submit}>
-          <div>
-            <h2>{authTitle}</h2>
-            <p>{authSubtitle}</p>
-          </div>
-          {error && <div className="error">{error}</div>}
-          {notice && <div className="success">{notice}</div>}
-          {mode === "register" && (
-            <>
-              <label>Nombre completo<input value={form.fullName} onChange={(e) => update("fullName", e.target.value)} required /></label>
-              <div className="grid two">
-                <label>Documento<input value={form.documentId} onChange={(e) => update("documentId", e.target.value)} /></label>
-                <label>Rol profesional
-                  <select value={form.professionalRole} onChange={(e) => update("professionalRole", e.target.value)} required>
-                    {professionalRoles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </label>
-              </div>
-              <label>Servicio o área clínica<input value={form.serviceArea} onChange={(e) => update("serviceArea", e.target.value)} placeholder="Medicina interna, UCI, urgencias..." /></label>
-              <div className="grid two">
-                <label>Institución<input value={form.institutionName} onChange={(e) => update("institutionName", e.target.value)} required /></label>
-                <label>Ciudad<input value={form.institutionCity} onChange={(e) => update("institutionCity", e.target.value)} /></label>
-              </div>
-              <label>Pregunta de recuperación<input value={form.securityQuestion} onChange={(e) => update("securityQuestion", e.target.value)} placeholder="Ej. ¿Cuál fue tu primer hospital?" required minLength={6} /></label>
-              <label>Respuesta de seguridad<input value={form.securityAnswer} onChange={(e) => update("securityAnswer", e.target.value)} required minLength={2} /></label>
-            </>
-          )}
-          <label>Correo electrónico<input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required /></label>
-          {mode === "recover" ? (
-            <>
-              {recoveryQuestion && (
-                <>
-                  <div className="security-question"><strong>Pregunta:</strong><span>{recoveryQuestion}</span></div>
-                  <label>Respuesta<input value={form.securityAnswer} onChange={(e) => update("securityAnswer", e.target.value)} required minLength={2} /></label>
-                  <label>Nueva contraseña<input type="password" value={form.newPassword} onChange={(e) => update("newPassword", e.target.value)} required minLength={6} /></label>
-                </>
-              )}
-              <button className="btn primary full" disabled={loading}>{loading ? "Procesando..." : recoveryQuestion ? "Actualizar contraseña" : "Ver pregunta"}</button>
-              <button type="button" className="btn ghost full" onClick={() => switchMode("login")}>Volver al ingreso</button>
-            </>
-          ) : (
-            <>
-              <label>Contraseña<input type="password" value={form.password} onChange={(e) => update("password", e.target.value)} required minLength={6} /></label>
-              <button className="btn primary full" disabled={loading}>{loading ? "Procesando..." : mode === "login" ? "Ingresar" : "Crear cuenta"}</button>
-              {mode === "login" && <button type="button" className="btn ghost full" onClick={() => switchMode("recover")}>Olvidé mi contraseña</button>}
-              <button type="button" className="btn ghost full" onClick={() => switchMode(mode === "login" ? "register" : "login")}>
-                {mode === "login" ? "Crear cuenta nueva" : "Ya tengo cuenta"}
-              </button>
-            </>
-          )}
-          <button type="button" className="btn secondary full" onClick={installApp}><Download size={18} /> Instalar IonoMed</button>
-        </form>
-      </section>
-    </main>
-  );
-}
-
 function MainApp({ session, onLogout }) {
   const [theme, setTheme] = useState(getStoredTheme);
-  const [installPrompt, setInstallPrompt] = useState(null);
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patientForm, setPatientForm] = useState(initialPatient);
@@ -359,6 +43,7 @@ function MainApp({ session, onLogout }) {
   const [patientSearch, setPatientSearch] = useState("");
   const [patientFilter, setPatientFilter] = useState("todos");
   const [patientPanelOpen, setPatientPanelOpen] = useState(false);
+  const [confirmRequest, setConfirmRequest] = useState(null);
 
   const isTraining = ["estudiante_medicina", "interno", "residente", "fellow"].includes(session.user?.professionalRole);
   const isAdmin = session.user?.accessRole === "admin";
@@ -392,25 +77,6 @@ function MainApp({ session, onLogout }) {
     document.addEventListener("pointerdown", closeMenu);
     return () => document.removeEventListener("pointerdown", closeMenu);
   }, [moreMenuOpen]);
-
-  useEffect(() => {
-    const handler = (event) => {
-      event.preventDefault();
-      setInstallPrompt(event);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-
-  async function installApp() {
-    if (installPrompt) {
-      installPrompt.prompt();
-      await installPrompt.userChoice.catch(() => null);
-      setInstallPrompt(null);
-      return;
-    }
-    setMessage("Para instalar IonoMed: abre el menu del navegador y elige Instalar app o Agregar a pantalla de inicio.");
-  }
 
   async function loadPatients() {
     try {
@@ -468,6 +134,12 @@ function MainApp({ session, onLogout }) {
     setTab("nuevo");
   }
 
+  function requestConfirm({ title, message, confirmLabel = "Confirmar" }) {
+    return new Promise((resolve) => {
+      setConfirmRequest({ title, message, confirmLabel, resolve });
+    });
+  }
+
   async function createPatient(e) {
     e.preventDefault();
     setError("");
@@ -504,7 +176,11 @@ function MainApp({ session, onLogout }) {
 
   async function deleteLab(lab) {
     if (!selectedPatient?._id || !lab?._id) return;
-    const ok = window.confirm("Borrar este control/laboratorio? Tambien se eliminaran las ordenes generadas con ese dato.");
+    const ok = await requestConfirm({
+      title: "Borrar laboratorio",
+      message: "Tambien se eliminaran las ordenes generadas con ese dato. Esta accion no se puede deshacer.",
+      confirmLabel: "Borrar laboratorio"
+    });
     if (!ok) return;
     setError("");
     setMessage("");
@@ -550,7 +226,11 @@ function MainApp({ session, onLogout }) {
   }
 
   async function deletePatient(patient) {
-    const ok = window.confirm(`Eliminar de pacientes activos a ${patient.nameOrCode}?`);
+    const ok = await requestConfirm({
+      title: "Eliminar paciente activo",
+      message: `Se retirara a ${patient.nameOrCode} de la lista activa y se cerraran ordenes pendientes.`,
+      confirmLabel: "Eliminar paciente"
+    });
     if (!ok) return;
     setError("");
     setMessage("");
@@ -619,7 +299,6 @@ function MainApp({ session, onLogout }) {
         </div>
         <div className="topbar-actions">
           <span className="badge">{roleLabel(session.user?.professionalRole)}</span>
-          <button className="btn secondary install-button" type="button" onClick={installApp}><Download size={18} /> Instalar</button>
           <button
             className="btn ghost"
             type="button"
@@ -634,6 +313,21 @@ function MainApp({ session, onLogout }) {
       </header>
 
       <main className="container grid">
+        {confirmRequest && (
+          <ConfirmDialog
+            title={confirmRequest.title}
+            message={confirmRequest.message}
+            confirmLabel={confirmRequest.confirmLabel}
+            onCancel={() => {
+              confirmRequest.resolve(false);
+              setConfirmRequest(null);
+            }}
+            onConfirm={() => {
+              confirmRequest.resolve(true);
+              setConfirmRequest(null);
+            }}
+          />
+        )}
         {isTraining && (
           <div className="alert red">
             <strong>Usuario en formación:</strong> toda orden médica sugerida debe ser revisada y validada por el médico responsable o especialista tratante antes de su aplicación clínica.
@@ -659,6 +353,7 @@ function MainApp({ session, onLogout }) {
 
         <DashboardPanels
           dashboard={dashboard}
+          formatShortDate={formatShortDate}
           onSelectPatient={(patient) => {
             const fullPatient = patients.find((item) => String(item._id) === String(patient._id || patient.patientId));
             if (fullPatient) selectPatient(fullPatient);
@@ -667,7 +362,7 @@ function MainApp({ session, onLogout }) {
         <MobileDashboardPanels dashboard={dashboard} onSelectPatient={(patient) => {
           const fullPatient = patients.find((item) => String(item._id) === String(patient._id || patient.patientId));
           if (fullPatient) selectPatient(fullPatient);
-        }} />
+        }} formatShortDate={formatShortDate} />
 
         <section className={`workbench ${tab === "soluciones" ? "solutions-workbench" : ""}`}>
           {tab !== "soluciones" && (
@@ -730,7 +425,14 @@ function MainApp({ session, onLogout }) {
           )}
 
           <section className="card workspace-card">
-            {tab !== "soluciones" && <SelectedPatientTreatmentPanel patient={selectedPatient} orderHistory={orderHistory} />}
+            {tab !== "soluciones" && (
+              <SelectedPatientTreatmentPanel
+                patient={selectedPatient}
+                orderHistory={orderHistory}
+                orderCurrentSolution={orderCurrentSolution}
+                orderSolutionOptions={orderSolutionOptions}
+              />
+            )}
             <div className="tabs app-tabs">
               <button className={`tab ${tab === "nuevo" ? "active" : ""}`} onClick={() => selectTab("nuevo")} type="button">
                 <UserRound size={16} />
@@ -778,6 +480,23 @@ function MainApp({ session, onLogout }) {
                 onOrderUpdated={updateOrder}
                 onDeleteLab={deleteLab}
                 settings={institutionSettings}
+                helpers={{
+                  activeClinicalOrders,
+                  buildClinicalSummary,
+                  disorderKey,
+                  display,
+                  formatShortDate
+                }}
+                components={{
+                  ArterialGasPanel,
+                  ClinicalValidationPanel,
+                  FollowUpPanel,
+                  Metric,
+                  MobileQuickResult,
+                  OrderCard,
+                  PatientHistorySection,
+                  RepositionSummary
+                }}
               />
             )}
             {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} isAdmin={isAdmin} onSettingsSaved={setInstitutionSettings} />}
@@ -790,167 +509,18 @@ function MainApp({ session, onLogout }) {
   );
 }
 
-function DashboardPanels({ dashboard, onSelectPatient }) {
-  if (!dashboard) return null;
-  const alerts = dashboard.criticalAlerts || [];
-  const controls = dashboard.controls || [];
-  const visibleAlerts = alerts.slice(0, 3);
-  const hiddenAlerts = alerts.slice(3);
-  const visibleControls = controls.slice(0, 4);
-  const hiddenControls = controls.slice(4, 10);
-
+function ConfirmDialog({ title, message, confirmLabel, onCancel, onConfirm }) {
   return (
-    <section className="dashboard-grid compact">
-      <div className="card dashboard-panel">
-        <div className="dashboard-panel-title">
-          <h2>Alertas activas</h2>
-          <span className="badge">{alerts.length}</span>
-        </div>
-        {alerts.length === 0 && <p>No hay alertas criticas activas.</p>}
-        {visibleAlerts.map((alert) => (
-          <button className="dashboard-row" key={alert.orderId} onClick={() => onSelectPatient({ patientId: alert.patientId })}>
-            <span>
-              <strong>{alert.patientName}</strong>
-              <small>{alert.disorder} · {alert.severity}</small>
-            </span>
-            <span className={`badge ${alert.priority}`}>{alert.controlValue || alert.priority}</span>
-          </button>
-        ))}
-        {hiddenAlerts.length > 0 && (
-          <details className="dashboard-more">
-            <summary>Ver {hiddenAlerts.length} alerta(s) mas</summary>
-            <div className="controls-list tight">
-              {hiddenAlerts.map((alert) => (
-                <button className="dashboard-row" key={alert.orderId} onClick={() => onSelectPatient({ patientId: alert.patientId })}>
-                  <span>
-                    <strong>{alert.patientName}</strong>
-                    <small>{alert.disorder} · {alert.severity}</small>
-                  </span>
-                  <span className={`badge ${alert.priority}`}>{alert.controlValue || alert.priority}</span>
-                </button>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-
-      <div className="card dashboard-panel">
-        <div className="dashboard-panel-title">
-          <h2>Controles</h2>
-          <span className="badge">{controls.length}</span>
-        </div>
-        {controls.length === 0 && <p>No hay controles pendientes calculados.</p>}
-          <div className="controls-list tight">
-            {visibleControls.map((control) => (
-              <button className={`dashboard-row compact-row ${control.overdue ? "overdue" : ""}`} key={control.orderId} onClick={() => onSelectPatient({ patientId: control.patientId })}>
-                <span>
-                  <strong>{control.patientName}</strong>
-                  <small>{control.disorder}</small>
-                </span>
-                <span>{control.controlValue ? `${control.controlValue} - ` : ""}{formatShortDate(control.dueAt)}</span>
-              </button>
-            ))}
-          </div>
-        {hiddenControls.length > 0 && (
-          <details className="dashboard-more">
-            <summary>Ver {hiddenControls.length} control(es) mas</summary>
-            <div className="controls-list tight">
-              {hiddenControls.map((control) => (
-                <button className={`dashboard-row compact-row ${control.overdue ? "overdue" : ""}`} key={control.orderId} onClick={() => onSelectPatient({ patientId: control.patientId })}>
-                  <span>
-                    <strong>{control.patientName}</strong>
-                    <small>{control.disorder}</small>
-                  </span>
-                  <span>{control.controlValue ? `${control.controlValue} - ` : ""}{formatShortDate(control.dueAt)}</span>
-                </button>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function MobileDashboardPanels({ dashboard, onSelectPatient }) {
-  if (!dashboard) return null;
-  const alerts = dashboard.criticalAlerts || [];
-  const controls = dashboard.controls || [];
-  const nextAlert = alerts[0];
-  const nextControl = controls[0];
-
-  return (
-    <section className="mobile-dashboard">
-      <div className="mobile-dashboard-strip">
-        <button type="button" className="mobile-stat danger" onClick={() => nextAlert && onSelectPatient({ patientId: nextAlert.patientId })}>
-          <strong>{alerts.length}</strong>
-          <span>Alertas</span>
-        </button>
-        <button type="button" className="mobile-stat" onClick={() => nextControl && onSelectPatient({ patientId: nextControl.patientId })}>
-          <strong>{controls.length}</strong>
-          <span>Controles</span>
-        </button>
-        <div className="mobile-stat">
-          <strong>{dashboard.counts?.activePatients ?? 0}</strong>
-          <span>Activos</span>
-        </div>
-      </div>
-      {(nextAlert || nextControl) && (
-        <details className="mobile-dashboard-details">
-          <summary>Ver prioridad clínica</summary>
-          <div>
-            {nextAlert && (
-              <button type="button" className="mobile-priority-row" onClick={() => onSelectPatient({ patientId: nextAlert.patientId })}>
-                <span><strong>{nextAlert.patientName}</strong><small>{nextAlert.disorder}</small></span>
-                <b className={`badge ${nextAlert.priority}`}>{nextAlert.controlValue || nextAlert.priority}</b>
-              </button>
-            )}
-            {nextControl && (
-              <button type="button" className="mobile-priority-row" onClick={() => onSelectPatient({ patientId: nextControl.patientId })}>
-                <span><strong>{nextControl.patientName}</strong><small>{nextControl.disorder}</small></span>
-                <b>{formatShortDate(nextControl.dueAt)}</b>
-              </button>
-            )}
-          </div>
-        </details>
-      )}
-    </section>
-  );
-}
-
-function SelectedPatientTreatmentPanel({ patient, orderHistory }) {
-  if (!patient) return null;
-  const activeOrder = (orderHistory || []).find((order) => !["done", "not_done"].includes(order.status)) || orderHistory?.[0];
-  if (!activeOrder) {
-    return (
-      <section className="patient-treatment-panel">
-        <div>
-          <strong>{patient.nameOrCode}</strong>
-          <small>Sin orden activa guardada. Ingresa laboratorio para generar plan.</small>
+    <div className="modal-backdrop" role="presentation">
+      <section className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <h2 id="confirm-title">{title}</h2>
+        <p>{message}</p>
+        <div className="form-actions">
+          <button className="btn ghost" type="button" onClick={onCancel}>Cancelar</button>
+          <button className="btn danger" type="button" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </section>
-    );
-  }
-  const current = orderCurrentSolution(activeOrder);
-  const options = orderSolutionOptions(activeOrder);
-  return (
-    <section className="patient-treatment-panel">
-      <div>
-        <strong>{patient.nameOrCode}</strong>
-        <small>{activeOrder.disorder} · {activeOrder.severity} · {activeOrder.priority}</small>
-      </div>
-      <div className="treatment-current">
-        <span>Solución actual</span>
-        <strong>{current.solution}</strong>
-        {current.rate && <small>{current.rate}</small>}
-      </div>
-      <div className="treatment-options">
-        <span>Soluciones compatibles</span>
-        <div>
-          {options.map((option) => <small key={option}>{option}</small>)}
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -1220,6 +790,8 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingBackup, setPendingBackup] = useState(null);
+  const [backupPreview, setBackupPreview] = useState(null);
   const filteredDisorders = solutionDisordersByElectrolyte[solutionForm.electrolyte] || [];
   const calculated = calculatedSolution(solutionForm);
 
@@ -1569,14 +1141,36 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
     try {
       const text = await file.text();
       const backup = JSON.parse(text);
-      await api("/admin/backup/restore", { method: "POST", body: JSON.stringify(backup) });
+      const data = await api("/admin/backup/preview", { method: "POST", body: JSON.stringify({ backup }) });
+      setPendingBackup(backup);
+      setBackupPreview(data.preview);
+      setMessage("Backup cargado para revision. Confirma la restauracion solo si el resumen corresponde.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function confirmRestoreBackup() {
+    if (!pendingBackup) return;
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      await api("/admin/backup/restore", {
+        method: "POST",
+        body: JSON.stringify({ backup: pendingBackup, confirmRestore: true })
+      });
+      setPendingBackup(null);
+      setBackupPreview(null);
       setMessage("Backup restaurado. Vuelve a iniciar sesion si los usuarios restaurados cambiaron.");
       await loadSettings();
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
-      event.target.value = "";
     }
   }
 
@@ -1599,6 +1193,22 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
             <input type="file" accept="application/json,.json" onChange={restoreBackup} disabled={loading} />
           </label>
         </div>
+        {backupPreview && (
+          <div className="alert">
+            <strong>Backup pendiente de restaurar</strong>
+            <p>
+              {backupPreview.app} {backupPreview.version ? `v${backupPreview.version}` : ""} - {formatDate(backupPreview.createdAt)}
+            </p>
+            <p>
+              Instituciones: {backupPreview.counts.institutions} | Usuarios: {backupPreview.counts.users} | Pacientes: {backupPreview.counts.patients} | Labs: {backupPreview.counts.labs} | Ordenes: {backupPreview.counts.orders}
+            </p>
+            {backupPreview.institutions?.length > 0 && <p>Incluye: {backupPreview.institutions.join(", ")}</p>}
+            <div className="form-actions">
+              <button className="btn danger" type="button" onClick={confirmRestoreBackup} disabled={loading}>Confirmar restauracion</button>
+              <button className="btn ghost" type="button" onClick={() => { setPendingBackup(null); setBackupPreview(null); }} disabled={loading}>Cancelar</button>
+            </div>
+          </div>
+        )}
       </section>
 
       <form className="card grid" onSubmit={saveSettings}>
@@ -1679,175 +1289,6 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
   );
 }
 
-function PatientForm({ form, setForm, onSubmit, onEvaluate }) {
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  const toggle = (field, value) => setForm((prev) => ({
-    ...prev,
-    [field]: value === "ninguno"
-      ? (prev[field].includes("ninguno") ? [] : ["ninguno"])
-      : (prev[field].includes(value)
-        ? prev[field].filter((x) => x !== value)
-        : [...prev[field].filter((x) => x !== "ninguno"), value])
-  }));
-
-  return (
-    <form className="grid" onSubmit={onSubmit}>
-      <FormSection title="1. Identificación" summary="Datos mínimos para ubicar al paciente" open>
-      <div className="grid patient-identity-grid">
-        <label className="patient-name-field">Nombre o código<input value={form.nameOrCode || ""} onChange={(e) => update("nameOrCode", e.target.value)} required /></label>
-        <label>Identificación<input value={form.localIdentifier || ""} onChange={(e) => update("localIdentifier", e.target.value)} /></label>
-        <label>Edad<input type="number" value={form.age || ""} onChange={(e) => update("age", e.target.value)} /></label>
-        <label>Sexo
-          <select value={form.sex} onChange={(e) => update("sex", e.target.value)}>
-            <option value="male">Masculino</option>
-            <option value="female">Femenino</option>
-          </select>
-        </label>
-        <label>Peso kg<input type="number" step="0.1" value={form.weightKg || ""} onChange={(e) => update("weightKg", e.target.value)} /></label>
-      </div>
-      </FormSection>
-
-      <FormSection title="2. Contexto clínico" summary="Área, volemia, acceso y diuresis" open>
-      <div className="grid three clinical-context-grid">
-        <label>Área clínica
-          <select value={form.clinicalArea} onChange={(e) => update("clinicalArea", e.target.value)}>
-            <option value="urgencias">Urgencias</option>
-            <option value="hospitalizacion">Hospitalización</option>
-            <option value="uci">UCI</option>
-            <option value="ambulatorio">Ambulatorio</option>
-          </select>
-        </label>
-        <label>Volemia
-          <select value={form.volumeStatus} onChange={(e) => update("volumeStatus", e.target.value)}>
-            <option value="incierto">Incierto</option>
-            <option value="hipovolemico">Hipovolémico</option>
-            <option value="euvolemico">Euvolémico</option>
-            <option value="hipervolemico">Hipervolémico</option>
-          </select>
-        </label>
-        <label>Acceso venoso
-          <select value={form.venousAccess} onChange={(e) => update("venousAccess", e.target.value)}>
-            <option value="desconocido">Desconocido</option>
-            <option value="periferico">Periférico</option>
-            <option value="linea_media">Línea media</option>
-            <option value="picc">PICC</option>
-            <option value="central">Central</option>
-            <option value="ninguno">Ninguno</option>
-          </select>
-        </label>
-      </div>
-      <div className="grid three clinical-context-extra">
-        <label>Ubicación<input value={form.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="UCI, piso, urgencias..." /></label>
-        <label>Diuresis mL/kg/h<input type="number" step="0.01" value={form.urineOutputMlKgH || ""} onChange={(e) => update("urineOutputMlKgH", e.target.value)} /></label>
-        <label className="check-item inline-check"><input type="checkbox" checked={form.oralRouteAvailable} onChange={(e) => update("oralRouteAvailable", e.target.checked)} /> Vía oral disponible</label>
-      </div>
-      </FormSection>
-
-      <FormSection title="3. Riesgos clínicos" summary="Toca cada grupo solo si aplica">
-      <div className="risk-checklist-grid">
-        <Checklist title="Comorbilidades" items={comorbidities} selected={form.comorbidities || []} onToggle={(value) => toggle("comorbidities", value)} />
-        <Checklist title="Medicamentos relevantes" items={medications} selected={form.medications || []} onToggle={(value) => toggle("medications", value)} />
-        <Checklist title="Signos neurológicos" items={neuroSymptoms} selected={form.neurologicSymptoms || []} onToggle={(value) => toggle("neurologicSymptoms", value)} />
-        <Checklist title="Síntomas cardiovasculares / ECG" items={cardioSymptoms} selected={form.cardiovascularSymptoms || []} onToggle={(value) => toggle("cardiovascularSymptoms", value)} />
-      </div>
-      </FormSection>
-
-      <div className="form-actions">
-        <button className="btn primary" type="submit"><Save size={18} /> Crear paciente</button>
-        <button className="btn secondary" type="button" onClick={onEvaluate}><Stethoscope size={18} /> Evaluar sin guardar</button>
-      </div>
-    </form>
-  );
-}
-
-function Checklist({ title, items, selected, onToggle }) {
-  const selectedLabels = items
-    .filter(([value]) => selected.includes(value))
-    .map(([, label]) => label);
-  const summary = selectedLabels.length ? selectedLabels.slice(0, 3).join(", ") : "Sin selección";
-  const extraCount = Math.max(selectedLabels.length - 3, 0);
-
-  return (
-    <details className="check-section">
-      <summary>
-        <span>
-          <strong>{title}</strong>
-          <small>{summary}{extraCount ? ` +${extraCount}` : ""}</small>
-        </span>
-        <b>{selectedLabels.length}</b>
-      </summary>
-      <div className="check-grid compact">
-        {items.map(([value, label]) => (
-          <label className="check-item" key={value}>
-            <input type="checkbox" checked={selected.includes(value)} onChange={() => onToggle(value)} />
-            {label}
-          </label>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function FormSection({ title, summary, children, open = false }) {
-  return (
-    <details className="form-section" open={open}>
-      <summary>
-        <span>
-          <strong>{title}</strong>
-          {summary && <small>{summary}</small>}
-        </span>
-        <ChevronDown size={16} />
-      </summary>
-      <div className="form-section-body">{children}</div>
-    </details>
-  );
-}
-
-function LabForm({ form, setForm, onSubmit, selectedPatient }) {
-  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  return (
-    <form className="grid" onSubmit={onSubmit}>
-      <div className="alert">
-        {selectedPatient ? `Paciente seleccionado: ${selectedPatient.nameOrCode}` : "Puedes ingresar laboratorios luego de crear o seleccionar un paciente."}
-      </div>
-      <FormSection title="1. Electrolitos básicos" summary="Valores principales para clasificar y ordenar" open>
-        <label>Fecha y hora del laboratorio<input type="datetime-local" value={form.collectedAt} onChange={(e) => update("collectedAt", e.target.value)} /></label>
-        <div className="grid quick-labs lab-basic-grid">
-          <Num label="Sodio mmol/L" value={form.sodium} onChange={(v) => update("sodium", v)} />
-          <Num label="Potasio mmol/L" value={form.potassium} onChange={(v) => update("potassium", v)} />
-          <Num label="Cloro mmol/L" value={form.chloride} onChange={(v) => update("chloride", v)} />
-          <Num label="Magnesio mg/dL" value={form.magnesium} onChange={(v) => update("magnesium", v)} />
-          <Num label="Fósforo mg/dL" value={form.phosphorus} onChange={(v) => update("phosphorus", v)} />
-          <Num label="Calcio total mg/dL" value={form.calciumTotal} onChange={(v) => update("calciumTotal", v)} />
-        </div>
-      </FormSection>
-      <FormSection title="2. Datos complementarios" summary="Renal, ácido-base, osmolaridad y orina">
-        <div className="grid quick-labs lab-complement-grid">
-          <Num label="Calcio ionizado" value={form.calciumIonized} onChange={(v) => update("calciumIonized", v)} />
-          <Num label="Albúmina g/dL" value={form.albumin} onChange={(v) => update("albumin", v)} />
-          <Num label="Glucosa mg/dL" value={form.glucose} onChange={(v) => update("glucose", v)} />
-          <Num label="Creatinina mg/dL" value={form.creatinine} onChange={(v) => update("creatinine", v)} />
-          <Num label="BUN mg/dL" value={form.bun} onChange={(v) => update("bun", v)} />
-          <Num label="pH" value={form.ph} onChange={(v) => update("ph", v)} />
-          <Num label="Bicarbonato mmol/L" value={form.bicarbonate} onChange={(v) => update("bicarbonate", v)} />
-          <Num label="Osmolaridad sérica" value={form.serumOsmolality} onChange={(v) => update("serumOsmolality", v)} />
-          <Num label="Osmolaridad urinaria" value={form.urineOsmolality} onChange={(v) => update("urineOsmolality", v)} />
-          <Num label="Sodio urinario" value={form.urineSodium} onChange={(v) => update("urineSodium", v)} />
-          <Num label="Potasio urinario" value={form.urinePotassium} onChange={(v) => update("urinePotassium", v)} />
-        </div>
-        <label>Notas<textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} /></label>
-      </FormSection>
-      <div className="form-actions">
-        <button className="btn primary" type="submit"><Activity size={18} /> Guardar y evaluar</button>
-      </div>
-    </form>
-  );
-}
-
-function Num({ label, value, onChange }) {
-  return <label>{label}<input type="number" step="0.01" value={value || ""} onChange={(e) => onChange(e.target.value)} /></label>;
-}
-
 function activeClinicalOrders(evaluationOrders = [], orderHistory = []) {
   const activeHistory = (orderHistory || []).filter((order) => order && !["done", "not_done"].includes(order.status));
   const merged = [...(evaluationOrders || []), ...activeHistory];
@@ -1861,119 +1302,77 @@ function activeClinicalOrders(evaluationOrders = [], orderHistory = []) {
   });
 }
 
-function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated, onDeleteLab, settings }) {
-  if (!evaluation) {
-    return (
-      <div className="result-panel">
-        <section className="result-header">
-          <div>
-            <h2>Paraclínicos registrados</h2>
-            <p>{patientDetails?.patient ? `Paciente: ${patientDetails.patient.nameOrCode}` : "Selecciona un paciente para consultar sus controles previos."}</p>
-          </div>
-        </section>
-        <div className="alert">No hay una evaluación nueva en pantalla. Puedes revisar o borrar paraclínicos ya registrados sin ingresar un dato nuevo.</div>
-        <PatientHistorySection labs={patientDetails?.labs || []} orders={orderHistory || []} onDeleteLab={onDeleteLab} open />
-      </div>
-    );
-  }
-  const calc = evaluation.calculations || {};
-  const orders = activeClinicalOrders(evaluation.orders || [], orderHistory || []);
-  const evaluationWithActiveOrders = { ...evaluation, orders };
-  const latestLab = patientDetails?.labs?.[0] || null;
-  const labText = latestLab ? formatShortDate(latestLab.collectedAt || latestLab.createdAt) : "Evaluacion no guardada";
-  const activeElectrolytes = new Set(orders.map((order) => disorderKey(order.disorder)));
-  const outdatedOrders = latestLab?._id
-    ? (orderHistory || []).filter((order) =>
-      order?.labId &&
-      String(order.labId) !== String(latestLab._id) &&
-      !["done", "not_done"].includes(order.status)
-    )
-    : [];
-  function downloadSummary() {
-    const text = buildClinicalSummary(evaluationWithActiveOrders, patientDetails);
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ionomed-resumen-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-  function printSummary() {
-    window.print();
-  }
-  return (
-    <div className="result-panel">
-      {(evaluation.globalAlerts || []).map((alert, idx) => <div className="alert red" key={idx}>{alert}</div>)}
-      {outdatedOrders.length > 0 && (
-        <div className="alert">
-          <strong>Ordenes activas previas:</strong> {outdatedOrders.length} reposicion(es) activa(s) fueron creadas con un laboratorio anterior. Recalcula o confirma antes de copiar.
-        </div>
-      )}
-      <ClinicalResultSummary
-        labText={labText}
-        disorderCount={(evaluation.classifications || []).length}
-        electrolyteCount={activeElectrolytes.size}
-        orderCount={orders.length}
-      />
-      <MobileQuickResult orders={orders} />
-      <FollowUpPanel followUp={evaluation.followUp} />
-      <RepositionSummary orders={orders} />
-
-      <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits">
-        <div className="metrics">
-          <Metric label="TFG CKD-EPI" value={display(calc.egfr, "mL/min/1.73m²")} />
-          <Metric label="Cockcroft-Gault" value={display(calc.cockcroftGault, "mL/min")} />
-          <Metric label="Clase renal" value={calc.renalClass || "—"} />
-          <Metric label="ACT estimada" value={display(calc.totalBodyWater, "L")} />
-          <Metric label="Na corregido" value={display(calc.sodiumCorrected, "mmol/L")} />
-          <Metric label="Ca corregido" value={display(calc.calciumCorrected, "mg/dL")} />
-          <Metric label="Osm calculada" value={display(calc.calculatedSerumOsmolality, "mOsm/kg")} />
-          <Metric label="NaCl 3% Δ/L" value={display(calc.sodium3ChangePerLiter, "mmol/L")}/>
-          <Metric label="Deficit Na estimado" value={display(calc.sodiumDeficitMeq, "mEq")} />
-          <Metric label="Basal K estimado" value={display(calc.potassiumBasalMeq, "mEq")} />
-          <Metric label="Deficit K estimado" value={display(calc.potassiumDeficitMeq, "mEq")} />
-          <Metric label="Total K a reponer" value={display(calc.potassiumTotalReplacementMeq, "mEq")} />
-        </div>
-      </FormSection>
-
-      <FormSection title="Órdenes médicas sugeridas" summary={`${orders.length} orden(es) lista(s) para revisar`} open>
-        <div className="result-actions compact">
-          <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
-          <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
-        </div>
-        {orders.map((order, idx) => (
-          <OrderCard
-            order={order}
-            calculations={calc}
-            key={order._id || idx}
-            index={idx}
-            total={orders.length}
-            onOrderUpdated={onOrderUpdated}
-            settings={settings}
-          />
-        ))}
-      </FormSection>
-
-      <FormSection title="Validación y seguridad" summary="Escenarios críticos del motor">
-        <ClinicalValidationPanel embedded />
-      </FormSection>
-
-      <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría">
-        <LabTrendTable labs={patientDetails?.labs || []} onDeleteLab={onDeleteLab} />
-        <Timeline labs={patientDetails?.labs || []} orders={orderHistory || []} />
-      </FormSection>
-    </div>
-  );
-}
-
 function PatientHistorySection({ labs, orders, onDeleteLab, open = false }) {
   return (
     <FormSection title="Historial del paciente" summary="Laboratorios previos y auditoría" open={open}>
       <LabTrendTable labs={labs} onDeleteLab={onDeleteLab} />
       <Timeline labs={labs} orders={orders} />
+    </FormSection>
+  );
+}
+
+function ArterialGasPanel({ gas }) {
+  if (!gas) return null;
+  const expected = gas.expectedCompensation || {};
+  const expectedText = expected.type
+    ? expected.expectedPco2Min !== undefined
+      ? `${expected.type}: pCO2 ${expected.expectedPco2Min}-${expected.expectedPco2Max} mmHg`
+      : `${expected.type}: HCO3 agudo ${expected.acuteHco3}, cronico ${expected.chronicHco3} mmol/L`
+    : "No calculable";
+
+  return (
+    <FormSection title="Interpretación gasométrica" summary={gas.primaryDisorder || "Sin gasometría completa"} open>
+      <div className="gas-hero">
+        <span>
+          <small>Diagnóstico gasométrico probable</small>
+          <strong>{gas.primaryDisorder}</strong>
+        </span>
+        <b className={`badge ${gas.acidBaseState === "acidemia" || gas.acidBaseState === "alcalemia" ? "alta" : "leve"}`}>{gas.acidBaseState}</b>
+      </div>
+      <div className="gas-grid">
+        <section className="gas-section">
+          <strong>Ácido-base</strong>
+          <div className="metrics">
+            <Metric label="pH" value={display(gas.ph)} />
+            <Metric label="pCO2" value={display(gas.pco2, "mmHg")} />
+            <Metric label="HCO3" value={display(gas.hco3, "mmol/L")} />
+            <Metric label="BE" value={display(gas.baseExcess, "mmol/L")} />
+            <Metric label="Lactato" value={display(gas.lactate, "mmol/L")} />
+          </div>
+        </section>
+        <section className="gas-section">
+          <strong>Brechas y mezcla</strong>
+          <div className="metrics">
+            <Metric label="Anion gap" value={display(gas.anionGap, "mEq/L")} />
+            <Metric label="AG corregido" value={display(gas.correctedAnionGap, "mEq/L")} />
+            <Metric label="Delta ratio" value={display(gas.deltaRatio)} />
+          </div>
+        </section>
+        <section className="gas-section">
+          <strong>Oxigenación</strong>
+          <div className="metrics">
+            <Metric label="pO2" value={display(gas.po2, "mmHg")} />
+            <Metric label="FiO2" value={gas.fio2 ? `${Math.round(gas.fio2 * 100)}%` : "—"} />
+            <Metric label="SatO2" value={display(gas.oxygenSaturation, "%")} />
+            <Metric label="P/F" value={display(gas.pfRatio)} />
+            <Metric label="A-a" value={display(gas.aaGradient, "mmHg")} />
+            <Metric label="Grado" value={gas.oxygenation?.pfRatio || "no disponible"} />
+          </div>
+        </section>
+        <section className="gas-section highlight">
+          <strong>Compensación esperada</strong>
+          <p>{expectedText}</p>
+          <p>{gas.compensationAssessment}</p>
+        </section>
+        {gas.alerts?.length > 0 && (
+          <section className="gas-section warning">
+            <strong>Alertas gasométricas</strong>
+            <div className="safety-pill-list">
+              {gas.alerts.map((alert, idx) => <span className="safety-pill warn" key={idx}>{alert}</span>)}
+            </div>
+          </section>
+        )}
+      </div>
     </FormSection>
   );
 }
@@ -2937,7 +2336,7 @@ function Timeline({ labs, orders }) {
       type: "Laboratorio",
       at: lab.collectedAt || lab.createdAt,
       title: "Laboratorio registrado",
-      detail: `Na ${display(lab.sodium)} - K ${display(lab.potassium)} - Mg ${display(lab.magnesium)} - P ${display(lab.phosphorus)} - Ca ${display(lab.calciumTotal)} - Cr ${display(lab.creatinine)}`
+      detail: `Na ${display(lab.sodium)} - K ${display(lab.potassium)} - Mg ${display(lab.magnesium)} - P ${display(lab.phosphorus)} - Ca ${display(lab.calciumTotal)} - Cr ${display(lab.creatinine)} - pH ${display(lab.ph)} - Lact ${display(lab.lactate)}`
     })),
     ...orders.map((order) => ({
       id: `order-${order._id}`,
@@ -2981,6 +2380,11 @@ function LabTrendTable({ labs, onDeleteLab }) {
             <th>P</th>
             <th>Ca</th>
             <th>Cr</th>
+            <th>pH</th>
+            <th>pCO2</th>
+            <th>HCO3</th>
+            <th>Lact</th>
+            <th>P/F</th>
             {onDeleteLab && <th></th>}
           </tr>
         </thead>
@@ -2994,6 +2398,11 @@ function LabTrendTable({ labs, onDeleteLab }) {
               <td>{display(lab.phosphorus)}</td>
               <td>{display(lab.calciumIonized ?? lab.calciumTotal)}</td>
               <td>{display(lab.creatinine)}</td>
+              <td>{display(lab.ph)}</td>
+              <td>{display(lab.pco2)}</td>
+              <td>{display(lab.bicarbonate)}</td>
+              <td>{display(lab.lactate)}</td>
+              <td>{display(labPfRatio(lab))}</td>
               {onDeleteLab && (
                 <td>
                   <button className="icon-button danger compact-icon" type="button" title="Borrar control" onClick={() => onDeleteLab(lab)}>
@@ -3018,6 +2427,7 @@ function truncateText(value, maxLength) {
 function buildClinicalSummary(evaluation, patientDetails) {
   const patient = patientDetails?.patient;
   const calc = evaluation?.calculations || {};
+  const gas = calc.arterialGas;
   const lines = [
     "IonoMed - Resumen clínico",
     `Fecha: ${formatDate(new Date().toISOString())}`,
@@ -3033,6 +2443,17 @@ function buildClinicalSummary(evaluation, patientDetails) {
     `Basal K: ${display(calc.potassiumBasalMeq, "mEq")}`,
     `Déficit K: ${display(calc.potassiumDeficitMeq, "mEq")}`,
     `Total K a reponer: ${display(calc.potassiumTotalReplacementMeq, "mEq")}`,
+    ...(gas ? [
+      "",
+      "Gasometria arterial",
+      `Estado pH: ${gas.acidBaseState}`,
+      `Trastorno principal: ${gas.primaryDisorder}`,
+      `Compensacion: ${gas.compensationAssessment}`,
+      `Anion gap corregido: ${display(gas.correctedAnionGap, "mEq/L")}`,
+      `P/F: ${display(gas.pfRatio)}`,
+      `Gradiente A-a: ${display(gas.aaGradient, "mmHg")}`,
+      ...((gas.alerts || []).map((alert) => `- ${alert}`))
+    ] : []),
     "",
     "Trastornos detectados",
     ...((evaluation?.classifications || []).map((item) => `- ${item.disorder} (${item.severity}, ${item.priority})`) || ["- Ninguno"]),
@@ -3070,6 +2491,15 @@ function formatShortDate(value) {
 function display(value, suffix) {
   if (value === null || value === undefined || value === "") return "—";
   return suffix ? `${value} ${suffix}` : value;
+}
+
+function labPfRatio(lab = {}) {
+  const po2 = Number(lab.po2);
+  const fio2Raw = Number(lab.fio2);
+  if (!Number.isFinite(po2) || !Number.isFinite(fio2Raw) || fio2Raw <= 0) return "";
+  const fio2 = fio2Raw > 1 ? fio2Raw / 100 : fio2Raw;
+  if (fio2 <= 0) return "";
+  return Math.round(po2 / fio2);
 }
 
 function latestPatientLab(labs = []) {

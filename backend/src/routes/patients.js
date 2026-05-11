@@ -1,8 +1,8 @@
 import express from "express";
-import { z } from "zod";
 import { authRequired } from "../middleware/auth.js";
 import { evaluateClinicalCase } from "../clinical/engine.js";
 import { buildFollowUp, buildPersistentClassifications } from "../clinical/followup.js";
+import { labSchema, patientSchema } from "../clinical/inputSchemas.js";
 import {
   closePatient,
   createLab,
@@ -20,48 +20,6 @@ import {
 
 const router = express.Router();
 router.use(authRequired);
-
-const patientSchema = z.object({
-  localIdentifier: z.string().optional(),
-  nameOrCode: z.string().min(1),
-  age: z.coerce.number().min(0).max(120).optional().nullable(),
-  sex: z.enum(["male", "female"]).default("male"),
-  weightKg: z.coerce.number().min(1).optional().nullable(),
-  heightCm: z.coerce.number().optional().nullable(),
-  clinicalArea: z.enum(["urgencias", "hospitalizacion", "uci", "ambulatorio"]).default("hospitalizacion"),
-  location: z.string().optional(),
-  volumeStatus: z.enum(["hipovolemico", "euvolemico", "hipervolemico", "incierto"]).default("incierto"),
-  oralRouteAvailable: z.boolean().default(true),
-  venousAccess: z.enum(["periferico", "linea_media", "central", "ninguno", "desconocido"]).default("desconocido"),
-  urineOutputMlKgH: z.coerce.number().optional().nullable(),
-  comorbidities: z.array(z.string()).default([]),
-  medications: z.array(z.string()).default([]),
-  neurologicSymptoms: z.array(z.string()).default([]),
-  cardiovascularSymptoms: z.array(z.string()).default([])
-});
-
-const labSchema = z.object({
-  collectedAt: z.coerce.date().optional(),
-  sodium: z.coerce.number().optional().nullable(),
-  potassium: z.coerce.number().optional().nullable(),
-  chloride: z.coerce.number().optional().nullable(),
-  magnesium: z.coerce.number().optional().nullable(),
-  phosphorus: z.coerce.number().optional().nullable(),
-  calciumTotal: z.coerce.number().optional().nullable(),
-  calciumIonized: z.coerce.number().optional().nullable(),
-  albumin: z.coerce.number().optional().nullable(),
-  glucose: z.coerce.number().optional().nullable(),
-  creatinine: z.coerce.number().optional().nullable(),
-  urea: z.coerce.number().optional().nullable(),
-  bun: z.coerce.number().optional().nullable(),
-  ph: z.coerce.number().optional().nullable(),
-  bicarbonate: z.coerce.number().optional().nullable(),
-  serumOsmolality: z.coerce.number().optional().nullable(),
-  urineOsmolality: z.coerce.number().optional().nullable(),
-  urineSodium: z.coerce.number().optional().nullable(),
-  urinePotassium: z.coerce.number().optional().nullable(),
-  notes: z.string().optional()
-});
 
 router.get("/", async (req, res) => {
   res.json(await listPatients(req.user.institutionId));

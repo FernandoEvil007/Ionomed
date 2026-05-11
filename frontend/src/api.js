@@ -12,6 +12,7 @@ export async function apiDownload(path) {
     }
   });
 
+  if (response.status === 401) clearSession();
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.message || "Error de descarga");
@@ -51,6 +52,7 @@ export async function api(path, options = {}) {
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "Error de comunicación");
+  if (response.status === 401) clearSession();
+  if (!response.ok) throw new Error(data.message || "Error de comunicacion");
   return data;
 }
