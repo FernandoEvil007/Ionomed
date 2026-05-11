@@ -419,8 +419,8 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 .patient-search input { padding-left: 34px; min-height: 40px; }
 .patient-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+  gap: 5px;
 }
 .patient-filters button {
   border: 1px solid var(--border);
@@ -1158,6 +1158,14 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   flex-wrap: wrap;
   align-items: start;
 }
+.order-copy-actions,
+.solution-admin-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .order-index {
   display: block;
   color: var(--brand);
@@ -1186,6 +1194,27 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   color: var(--heading);
   font-size: 0.9rem;
   line-height: 1.25;
+}
+.order-final-blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+.order-final-blocks section {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.order-final-blocks strong {
+  color: var(--heading);
+  font-size: 0.86rem;
+}
+.order-final-blocks small {
+  color: var(--muted-strong);
+  line-height: 1.3;
 }
 .order-alert-summary {
   display: grid;
@@ -1503,6 +1532,10 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.solution-admin-row .solution-admin-actions {
+  display: flex;
+  flex: 0 0 auto;
 }
 
 .solutions-guide {

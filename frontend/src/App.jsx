@@ -589,11 +589,14 @@ function MainApp({ session, onLogout }) {
       patient.topOrder?.disorder,
       ...(patient.activeOrders || []).map((order) => order.disorder)
     ].some((value) => String(value || "").toLowerCase().includes(search));
+    const electrolyteFilter = ["sodio", "potasio", "calcio", "magnesio", "fosforo"].includes(patientFilter);
     const matchesFilter =
-      patientFilter === "todos" ||
-      (patientFilter === "criticos" && ["critica", "alta"].includes(patient.riskPriority)) ||
-      (patientFilter === "controles" && patient.activeOrderCount > 0) ||
-      (patientFilter === "uci" && patient.clinicalArea === "uci");
+      electrolyteFilter
+        ? (patient.activeOrders || []).some((order) => disorderKey(order.disorder) === patientFilter)
+        : patientFilter === "todos" ||
+          (patientFilter === "criticos" && ["critica", "alta"].includes(patient.riskPriority)) ||
+          (patientFilter === "controles" && patient.activeOrderCount > 0) ||
+          (patientFilter === "uci" && patient.clinicalArea === "uci");
     return matchesSearch && matchesFilter;
   });
 
@@ -676,7 +679,12 @@ function MainApp({ session, onLogout }) {
                   ["todos", "Todos"],
                   ["criticos", "Criticos"],
                   ["controles", "Controles"],
-                  ["uci", "UCI"]
+                  ["uci", "UCI"],
+                  ["sodio", "Na"],
+                  ["potasio", "K"],
+                  ["calcio", "Ca"],
+                  ["magnesio", "Mg"],
+                  ["fosforo", "P"]
                 ].map(([value, label]) => (
                   <button key={value} type="button" className={patientFilter === value ? "active" : ""} onClick={() => setPatientFilter(value)}>
                     {label}
@@ -1178,6 +1186,7 @@ function calculatedSolution(solution) {
 function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) {
   const [settings, setSettings] = useState(initialSettings || {});
   const [solutionForm, setSolutionForm] = useState(emptySolutionForm);
+  const [solutionSearch, setSolutionSearch] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1227,6 +1236,17 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
       ...(prev || {}),
       customSolutions: (prev?.customSolutions || []).filter((solution) => solution.id !== id)
     }));
+  }
+
+  function duplicateSolution(solution) {
+    setSolutionForm({
+      ...emptySolutionForm,
+      ...solution,
+      id: undefined,
+      name: `${solution.name || "Solucion"} copia`,
+      active: true
+    });
+    setMessage("Solucion cargada para duplicar. Ajusta los datos y agrega la nueva version.");
   }
 
   async function saveSettings(event) {
@@ -1315,15 +1335,28 @@ function InstitutionalSolutionsPanel({ initialSettings = {}, onSettingsSaved }) 
         <button className="btn secondary" type="button" onClick={addSolution}><Plus size={18} /> Agregar solucion</button>
         <button className="btn primary" disabled={loading} type="button" onClick={saveSettings}><Save size={18} /> Guardar catalogo</button>
       </div>
+      <label>Buscar solucion institucional
+        <input value={solutionSearch} onChange={(event) => setSolutionSearch(event.target.value)} placeholder="Nombre, trastorno, via o preparacion" />
+      </label>
       <div className="solution-admin-list">
         {(settings.customSolutions || []).length === 0 && <p>No hay soluciones institucionales creadas.</p>}
-        {(settings.customSolutions || []).map((solution) => (
+        {(settings.customSolutions || [])
+          .filter((solution) => {
+            const query = solutionSearch.trim().toLowerCase();
+            if (!query) return true;
+            return [solution.name, solution.disorder, solution.route, solution.baseFluid, solution.preparation, solution.use]
+              .some((value) => String(value || "").toLowerCase().includes(query));
+          })
+          .map((solution) => (
           <article className="solution-admin-row" key={solution.id}>
             <span>
               <strong>{solution.name}</strong>
               <small>{solution.disorder} · {routeLabel(solution.route)} · {solution.preparation}</small>
             </span>
-            <button className="icon-button danger" type="button" onClick={() => removeSolution(solution.id)}><Trash2 size={16} /></button>
+            <span className="solution-admin-actions">
+              <button className="btn ghost" type="button" onClick={() => duplicateSolution(solution)}>Duplicar</button>
+              <button className="icon-button danger" type="button" onClick={() => removeSolution(solution.id)}><Trash2 size={16} /></button>
+            </span>
           </article>
         ))}
       </div>
@@ -1819,6 +1852,13 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
   const latestLab = patientDetails?.labs?.[0] || null;
   const labText = latestLab ? formatShortDate(latestLab.collectedAt || latestLab.createdAt) : "Evaluacion no guardada";
   const activeElectrolytes = new Set(orders.map((order) => disorderKey(order.disorder)));
+  const outdatedOrders = latestLab?._id
+    ? (orderHistory || []).filter((order) =>
+      order?.labId &&
+      String(order.labId) !== String(latestLab._id) &&
+      !["done", "not_done"].includes(order.status)
+    )
+    : [];
   function downloadSummary() {
     const text = buildClinicalSummary(evaluationWithActiveOrders, patientDetails);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -1837,6 +1877,11 @@ function ResultPanel({ evaluation, patientDetails, orderHistory, onOrderUpdated,
   return (
     <div className="result-panel">
       {(evaluation.globalAlerts || []).map((alert, idx) => <div className="alert red" key={idx}>{alert}</div>)}
+      {outdatedOrders.length > 0 && (
+        <div className="alert">
+          <strong>Ordenes activas previas:</strong> {outdatedOrders.length} reposicion(es) activa(s) fueron creadas con un laboratorio anterior. Recalcula o confirma antes de copiar.
+        </div>
+      )}
       <ClinicalResultSummary
         labText={labText}
         disorderCount={(evaluation.classifications || []).length}
@@ -2418,7 +2463,9 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
   const [text, setText] = useState(cleanAppliedOrderText(order.editedText || order.suggestedText || ""));
   const [comment, setComment] = useState(order.comment || "");
   const [copied, setCopied] = useState(false);
+  const [copiedPreparation, setCopiedPreparation] = useState(false);
   const [saving, setSaving] = useState(false);
+  const orderSections = orderFinalSections(text);
 
   useEffect(() => {
     setText(cleanAppliedOrderText(order.editedText || order.suggestedText || ""));
@@ -2442,6 +2489,15 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
     await update(`/orders/${order._id}/copy`, { method: "POST" });
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function copyPreparation() {
+    const preparation = orderSections.preparation.length
+      ? orderSections.preparation.join("\n")
+      : text;
+    await navigator.clipboard.writeText(preparation);
+    setCopiedPreparation(true);
+    setTimeout(() => setCopiedPreparation(false), 1800);
   }
 
   async function saveEdit() {
@@ -2479,10 +2535,14 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
           {order.status && <span className="badge">{statusLabel(order.status)}</span>}
           <span className={`badge ${order.priority}`}>{order.severity} · {order.priority}</span>
         </div>
-        <button className="btn secondary" onClick={copy} disabled={!order._id || saving}><ClipboardCopy size={18} /> {copied ? "Copiada" : "Copiar orden"}</button>
+        <div className="order-copy-actions">
+          <button className="btn secondary" onClick={copy} disabled={saving}><ClipboardCopy size={18} /> {copied ? "Copiada" : "Copiar orden"}</button>
+          <button className="btn ghost" type="button" onClick={copyPreparation}><ClipboardCopy size={18} /> {copiedPreparation ? "Copiada" : "Solo preparacion"}</button>
+        </div>
       </div>
       <OrderAlerts order={order} />
       <OrderClinicalBrief order={order} />
+      <OrderFinalBlocks sections={orderSections} />
       <ElectrolyteSolutionSelector order={order} calculations={calculations} onTextCalculated={handleCalculatedText} settings={settings} />
       <OrderSafety order={order} />
       <label>Orden médica sugerida editable
@@ -2541,6 +2601,51 @@ function OrderAlerts({ order }) {
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+function orderFinalSections(text = "") {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean);
+  const sections = {
+    preparation: [],
+    dose: [],
+    controls: [],
+    alerts: []
+  };
+  for (const line of lines) {
+    if (/preparaci|solucion escogida|concentracion final|mezclar|diluid/i.test(line)) {
+      sections.preparation.push(line);
+    } else if (/pasar|administrar|bolo|velocidad|maxima|mEq\/h|mL\/h|cc\/h|duracion/i.test(line)) {
+      sections.dose.push(line);
+    } else if (/control|solicitar|laboratorio|monitor|vigil/i.test(line)) {
+      sections.controls.push(line);
+    } else if (/no superar|evitar|no pasar|alert|riesgo|uci|nefrolog/i.test(line)) {
+      sections.alerts.push(line);
+    }
+  }
+  return sections;
+}
+
+function OrderFinalBlocks({ sections }) {
+  const blocks = [
+    ["Preparacion", sections.preparation],
+    ["Dosis y velocidad", sections.dose],
+    ["Controles", sections.controls],
+    ["Alertas", sections.alerts]
+  ].filter(([, lines]) => lines.length);
+  if (!blocks.length) return null;
+  return (
+    <div className="order-final-blocks">
+      {blocks.map(([title, lines]) => (
+        <section key={title}>
+          <strong>{title}</strong>
+          {lines.slice(0, 3).map((line) => <small key={line}>{line}</small>)}
+        </section>
+      ))}
     </div>
   );
 }
