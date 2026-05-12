@@ -43,14 +43,6 @@ export function ResultPanel({
   const latestLab = patientDetails?.labs?.[0] || null;
   const labText = latestLab ? formatShortDate(latestLab.collectedAt || latestLab.createdAt) : "Evaluación no guardada";
   const activeElectrolytes = new Set(electrolyteOrders.map((order) => disorderKey(order.disorder)));
-  const outdatedOrders = latestLab?._id
-    ? (orderHistory || []).filter((order) =>
-      order?.labId &&
-      String(order.labId) !== String(latestLab._id) &&
-      !["done", "not_done"].includes(order.status) &&
-      !isGasometricOrder(order)
-    )
-    : [];
 
   function downloadSummary() {
     const text = buildClinicalSummary(evaluationWithActiveOrders, patientDetails);
@@ -72,12 +64,6 @@ export function ResultPanel({
   return (
     <div className="result-panel">
       {(evaluation.globalAlerts || []).map((alert, idx) => <div className="alert red" key={idx}>{alert}</div>)}
-      {outdatedOrders.length > 0 && (
-        <div className="alert">
-          <strong>Órdenes activas previas:</strong> {outdatedOrders.length} reposición(es) activa(s) fueron creadas con un laboratorio anterior. Recalcula o confirma antes de copiar.
-        </div>
-      )}
-      <PatientContextHeader patient={patientDetails?.patient} latestLab={latestLab} labText={labText} orders={electrolyteOrders} />
       <InterpretationHero evaluation={evaluation} orders={electrolyteOrders} labText={labText} />
       <ClinicalResultSummary
         labText={labText}
@@ -135,32 +121,6 @@ export function ResultPanel({
 
 function isGasometricOrder(order) {
   return /gasometr/i.test(order?.disorder || "");
-}
-
-function PatientContextHeader({ patient, latestLab, labText, orders }) {
-  const activePriority = orders?.[0]?.priority || "baja";
-  const demographics = [
-    patient?.age ? `${patient.age} años` : null,
-    patient?.sex,
-    patient?.clinicalArea,
-    patient?.location
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <section className={`clinical-context-header priority-${activePriority}`}>
-      <div>
-        <small>Paciente seleccionado</small>
-        <strong>{patient?.nameOrCode || "Evaluación preliminar"}</strong>
-        <span>{demographics || "Sin datos demográficos completos"}</span>
-      </div>
-      <div className="patient-chip-bar">
-        <span><small>Último laboratorio</small><b>{labText}</b></span>
-        <span><small>Prioridad</small><b className={`badge ${activePriority}`}>{activePriority}</b></span>
-        <span><small>Órdenes activas</small><b>{orders?.length || 0}</b></span>
-        {latestLab?.ph && <span><small>pH</small><b>{latestLab.ph}</b></span>}
-      </div>
-    </section>
-  );
 }
 
 function InterpretationHero({ evaluation, orders, labText }) {
