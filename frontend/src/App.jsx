@@ -48,6 +48,7 @@ function MainApp({ session, onLogout }) {
   const isTraining = ["estudiante_medicina", "interno", "residente", "fellow"].includes(session.user?.professionalRole);
   const isAdmin = session.user?.accessRole === "admin";
   const moreTabs = [
+    ["seguimiento", "Seguimiento"],
     ["soluciones", "Soluciones"],
     ["rangos", "Rangos"],
     ...(isAdmin ? [["admin", "Admin"]] : [])
@@ -446,6 +447,10 @@ function MainApp({ session, onLogout }) {
                 <FileText size={16} />
                 <span>Interpretación</span>
               </button>
+              <button className={`tab ${tab === "ordenes" ? "active" : ""}`} onClick={() => selectTab("ordenes")} type="button">
+                <ClipboardCopy size={16} />
+                <span>Órdenes</span>
+              </button>
               <div className="more-tab" ref={moreMenuRef}>
                 <button
                   className={`tab ${moreTabActive ? "active" : ""}`}
@@ -499,6 +504,23 @@ function MainApp({ session, onLogout }) {
                 }}
               />
             )}
+            {tab === "ordenes" && (
+              <OrdersWorkspace
+                orders={allClinicalOrders(evaluation?.orders || [], orderHistory || [])}
+                evaluation={evaluation}
+                settings={institutionSettings}
+                onOrderUpdated={updateOrder}
+              />
+            )}
+            {tab === "seguimiento" && (
+              <FollowUpWorkspace
+                patient={selectedPatient}
+                patientDetails={patientDetails}
+                evaluation={evaluation}
+                orders={allClinicalOrders(evaluation?.orders || [], orderHistory || [])}
+                onSelectTab={selectTab}
+              />
+            )}
             {tab === "soluciones" && <SolutionsGuide evaluation={evaluation} settings={institutionSettings} isAdmin={isAdmin} onSettingsSaved={setInstitutionSettings} />}
             {tab === "rangos" && <ClinicalRangesPanel />}
             {tab === "admin" && isAdmin && <AdminPanel initialSettings={institutionSettings} onSettingsSaved={setInstitutionSettings} />}
@@ -521,6 +543,130 @@ function ConfirmDialog({ title, message, confirmLabel, onCancel, onConfirm }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function FollowUpWorkspace({ patient, patientDetails, evaluation, orders = [], onSelectTab }) {
+  const labs = patientDetails?.labs || [];
+  const activeOrders = orders.filter((order) => !["done", "not_done"].includes(order.status));
+  const nextControls = activeOrders.flatMap((order) => order.controls || []).slice(0, 8);
+  const lastLab = labs[0];
+  const summary = evaluation ? buildClinicalSummary(evaluation, 220) : "Selecciona un paciente y registra laboratorio para iniciar seguimiento.";
+
+  return (
+    <section className="follow-workspace">
+      <div className="section-heading-row">
+        <div>
+          <h2>Seguimiento clínico</h2>
+          <p>{patient ? `${patient.name || "Paciente seleccionado"} · ${patient.location || "sin ubicación"}` : "Sin paciente seleccionado"}</p>
+        </div>
+        <button className="btn secondary" type="button" onClick={() => onSelectTab("laboratorio")}>
+          <FlaskConical size={18} /> Nuevo control
+        </button>
+      </div>
+      <div className="follow-grid">
+        <article className="follow-card-compact">
+          <small>Resumen actual</small>
+          <strong>{evaluation?.diagnosis?.[0]?.title || "Sin interpretación activa"}</strong>
+          <p>{summary}</p>
+        </article>
+        <article className="follow-card-compact">
+          <small>Órdenes activas</small>
+          <strong>{activeOrders.length}</strong>
+          <p>{activeOrders.length ? activeOrders.map((order) => order.disorder).filter(Boolean).slice(0, 3).join(", ") : "No hay órdenes pendientes."}</p>
+          <button className="btn ghost" type="button" onClick={() => onSelectTab("ordenes")}>Ver órdenes</button>
+        </article>
+        <article className="follow-card-compact">
+          <small>Último laboratorio</small>
+          <strong>{lastLab ? formatDate(lastLab.createdAt) : "Sin datos"}</strong>
+          <p>{lastLab ? `Na ${display(lastLab.sodium)} · K ${display(lastLab.potassium)} · Cr ${display(lastLab.creatinine)}` : "Agrega un laboratorio para activar tendencias."}</p>
+        </article>
+      </div>
+      {nextControls.length > 0 && (
+        <div className="control-stack">
+          <strong>Próximos controles sugeridos</strong>
+          {nextControls.map((control, index) => <span key={`${control}-${index}`}>{control}</span>)}
+        </div>
+      )}
+      {labs.length > 1 && <LabTrendSparklines labs={labs} />}
+      <Timeline labs={labs} orders={orders} />
+    </section>
+  );
+}
+
+function OrdersWorkspace({ orders = [], evaluation, settings, onOrderUpdated }) {
+  const [statusFilter, setStatusFilter] = useState("activas");
+  const [query, setQuery] = useState("");
+  const filtered = orders.filter((order) => {
+    const status = order.status || "suggested";
+    const statusOk = statusFilter === "todas"
+      || (statusFilter === "activas" && !["done", "not_done"].includes(status))
+      || status === statusFilter;
+    const text = [
+      order.disorder,
+      order.severity,
+      order.priority,
+      order.status,
+      order.suggestedText,
+      order.editedText,
+      order.controls?.join(" ")
+    ].join(" ").toLowerCase();
+    return statusOk && (!query.trim() || text.includes(query.trim().toLowerCase()));
+  });
+  const counts = {
+    activas: orders.filter((order) => !["done", "not_done"].includes(order.status)).length,
+    copied: orders.filter((order) => order.status === "copied").length,
+    edited: orders.filter((order) => order.status === "edited").length,
+    done: orders.filter((order) => order.status === "done").length,
+    not_done: orders.filter((order) => order.status === "not_done").length
+  };
+
+  return (
+    <section className="orders-workspace">
+      <div className="section-heading-row">
+        <div>
+          <h2>Órdenes clínicas</h2>
+          <p>Seguimiento operativo de órdenes sugeridas, copiadas, editadas y realizadas.</p>
+        </div>
+        <span className="badge">{filtered.length} visible(s)</span>
+      </div>
+      <div className="orders-toolbar">
+        <label className="patient-search">
+          <Search size={16} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por trastorno, estado, control o texto de orden" />
+        </label>
+        <div className="range-filter">
+          {[
+            ["activas", `Activas ${counts.activas}`],
+            ["copied", `Copiadas ${counts.copied}`],
+            ["edited", `Editadas ${counts.edited}`],
+            ["done", `Realizadas ${counts.done}`],
+            ["not_done", `No realizadas ${counts.not_done}`],
+            ["todas", `Todas ${orders.length}`]
+          ].map(([value, label]) => (
+            <button key={value} type="button" className={statusFilter === value ? "active" : ""} onClick={() => setStatusFilter(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {filtered.length === 0 && (
+        <div className="alert">No hay órdenes para este filtro. Genera una interpretación o selecciona otro paciente.</div>
+      )}
+      <div className="orders-list">
+        {filtered.map((order, index) => (
+          <OrderCard
+            order={order}
+            calculations={evaluation?.calculations || {}}
+            key={order._id || `${order.disorder}-${index}`}
+            index={index}
+            total={filtered.length}
+            onOrderUpdated={onOrderUpdated}
+            settings={settings}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1048,9 +1194,11 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
   const [loading, setLoading] = useState(false);
   const [pendingBackup, setPendingBackup] = useState(null);
   const [backupPreview, setBackupPreview] = useState(null);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     loadSettings();
+    loadUsers();
   }, []);
 
   async function loadSettings() {
@@ -1153,6 +1301,30 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
     }
   }
 
+  async function loadUsers() {
+    try {
+      const data = await api("/admin/users");
+      setUsers(data);
+    } catch {
+      setUsers([]);
+    }
+  }
+
+  async function updateUser(user, patch) {
+    setError("");
+    setMessage("");
+    try {
+      const updated = await api(`/admin/users/${user._id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch)
+      });
+      setUsers((prev) => prev.map((item) => item._id === updated._id ? updated : item));
+      setMessage("Usuario actualizado.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function confirmRestoreBackup() {
     if (!pendingBackup) return;
     setError("");
@@ -1180,6 +1352,20 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
     <div className="admin-panel grid">
       {error && <div className="error">{error}</div>}
       {message && <div className="success">{message}</div>}
+
+      <section className="admin-overview">
+        {[
+          ["Institución", "Límites de corrección y parámetros clínicos."],
+          ["Protocolos", "Soluciones, velocidades y controles institucionales."],
+          ["Usuarios", "Roles clínicos y permisos administrativos."],
+          ["Backups", "Exportación y restauración segura de la base local."]
+        ].map(([title, detail]) => (
+          <article key={title}>
+            <strong>{title}</strong>
+            <small>{detail}</small>
+          </article>
+        ))}
+      </section>
 
       <section className="card admin-actions">
         <h2>Backup local</h2>
@@ -1222,6 +1408,33 @@ function AdminPanel({ initialSettings = {}, onSettingsSaved }) {
         </div>
         <button className="btn primary" disabled={loading} type="submit"><Save size={18} /> Guardar configuracion</button>
       </form>
+
+      <section className="card grid">
+        <h2>Usuarios y roles</h2>
+        <p>Administra acceso institucional sin modificar credenciales.</p>
+        <div className="admin-user-list">
+          {users.length === 0 && <p>No hay usuarios para mostrar o tu sesión no tiene permisos de administrador.</p>}
+          {users.map((user) => (
+            <article className="admin-user-row" key={user._id}>
+              <span>
+                <strong>{user.fullName}</strong>
+                <small>{user.email} · {roleLabel(user.professionalRole)} · {user.serviceArea || "Sin servicio"}</small>
+              </span>
+              <select value={user.accessRole} onChange={(event) => updateUser(user, { accessRole: event.target.value })}>
+                <option value="clinico">Clínico</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button
+                className={`btn ${user.isActive ? "danger" : "secondary"}`}
+                type="button"
+                onClick={() => updateUser(user, { isActive: !user.isActive })}
+              >
+                {user.isActive ? "Desactivar" : "Activar"}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {false && (
       <section className="card grid">
@@ -1296,6 +1509,18 @@ function activeClinicalOrders(evaluationOrders = [], orderHistory = []) {
   return merged.filter((order) => {
     if (!order) return false;
     const key = disorderKey(order.disorder || order.electrolyte || order._id || "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function allClinicalOrders(evaluationOrders = [], orderHistory = []) {
+  const merged = [...(orderHistory || []), ...(evaluationOrders || [])];
+  const seen = new Set();
+  return merged.filter((order) => {
+    if (!order) return false;
+    const key = order._id || `${disorderKey(order.disorder || order.electrolyte || "")}-${order.createdAt || ""}-${order.status || ""}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -1986,7 +2211,9 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
   const [copied, setCopied] = useState(false);
   const [copiedPreparation, setCopiedPreparation] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [safetyReviewOpen, setSafetyReviewOpen] = useState(false);
   const orderSections = orderFinalSections(text);
+  const copyWarnings = copySafetyWarnings(order);
 
   useEffect(() => {
     setText(cleanAppliedOrderText(order.editedText || order.suggestedText || ""));
@@ -2005,10 +2232,11 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
     }
   }
 
-  async function copy() {
+  async function copyConfirmed() {
     await navigator.clipboard.writeText(text);
     await update(`/orders/${order._id}/copy`, { method: "POST" });
     setCopied(true);
+    setSafetyReviewOpen(false);
     setTimeout(() => setCopied(false), 1800);
   }
 
@@ -2057,10 +2285,31 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
           <span className={`badge ${order.priority}`}>{order.severity} · {order.priority}</span>
         </div>
         <div className="order-copy-actions">
-          <button className="btn secondary" onClick={copy} disabled={saving}><ClipboardCopy size={18} /> {copied ? "Copiada" : "Copiar orden"}</button>
+          <button className="btn secondary" onClick={() => setSafetyReviewOpen(true)} disabled={saving}><ClipboardCopy size={18} /> {copied ? "Copiada" : "Copiar orden"}</button>
           <button className="btn ghost" type="button" onClick={copyPreparation}><ClipboardCopy size={18} /> {copiedPreparation ? "Copiada" : "Solo preparacion"}</button>
         </div>
       </div>
+      {safetyReviewOpen && (
+        <div className="copy-review-panel">
+          <div>
+            <strong>Revisión de seguridad antes de copiar</strong>
+            <small>Confirma vía, velocidad, función renal, ECG, incompatibilidades y control antes de usar la orden.</small>
+          </div>
+          <SafetyChecklist order={order} />
+          {copyWarnings.length > 0 && (
+            <div className="copy-warning-list" role="alert">
+              <strong>Copiado con advertencias</strong>
+              {copyWarnings.map((warning) => <span key={warning}>{warning}</span>)}
+            </div>
+          )}
+          <div className="form-actions">
+            <button className="btn ghost" type="button" onClick={() => setSafetyReviewOpen(false)}>Volver a revisar</button>
+            <button className="btn primary" type="button" onClick={copyConfirmed} disabled={saving}>
+              <ClipboardCopy size={18} /> {copyWarnings.length ? "Copiar con advertencias" : "Confirmar y copiar"}
+            </button>
+          </div>
+        </div>
+      )}
       <OrderAlerts order={order} />
       <OrderClinicalBrief order={order} />
       <OrderFinalBlocks sections={orderSections} />
@@ -2219,6 +2468,19 @@ function SafetyChecklist({ order }) {
       </div>
     </div>
   );
+}
+
+function copySafetyWarnings(order) {
+  const safety = order.safety || {};
+  const missing = order.missingData || [];
+  return [
+    ...missing.map((item) => `Dato pendiente: ${item}`),
+    !safety.selectedInfusion && !safety.continuousFluid ? "Confirmar solución, vía y compatibilidad antes de transcribir." : null,
+    safety.requiresEcg ? "ECG requerido antes o durante la reposición según severidad." : null,
+    safety.requiresCardiacMonitoring ? "Monitorización cardiaca continua recomendada." : null,
+    safety.renalSevere || safety.oliguria || safety.anuria ? "Riesgo renal: validar diuresis, creatinina y necesidad de nefrología." : null,
+    safety.overloadRisk ? "Riesgo de sobrecarga: ajustar volumen y velocidad al estado clínico." : null
+  ].filter(Boolean);
 }
 
 function OrderSafety({ order }) {
@@ -2411,53 +2673,111 @@ function LabTrendTable({ labs, onDeleteLab }) {
   const rows = [...labs].sort((a, b) => new Date(b.collectedAt || b.createdAt || 0) - new Date(a.collectedAt || a.createdAt || 0)).slice(0, 6);
   if (!rows.length) return <p>No hay laboratorios guardados para mostrar tendencia.</p>;
   return (
-    <div className="lab-table-wrap">
-      <table className="lab-table">
-        <thead>
-          <tr>
-            <th>Fecha/hora</th>
-            <th>Na</th>
-            <th>K</th>
-            <th>Mg</th>
-            <th>P</th>
-            <th>Ca</th>
-            <th>Cr</th>
-            <th>pH</th>
-            <th>pCO2</th>
-            <th>HCO3</th>
-            <th>Lact</th>
-            <th>P/F</th>
-            {onDeleteLab && <th></th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((lab) => (
-            <tr key={lab._id}>
-              <td>{formatDate(lab.collectedAt || lab.createdAt)}</td>
-              <td>{display(lab.sodium)}</td>
-              <td>{display(lab.potassium)}</td>
-              <td>{display(lab.magnesium)}</td>
-              <td>{display(lab.phosphorus)}</td>
-              <td>{display(lab.calciumIonized ?? lab.calciumTotal)}</td>
-              <td>{display(lab.creatinine)}</td>
-              <td>{display(lab.ph)}</td>
-              <td>{display(lab.pco2)}</td>
-              <td>{display(lab.bicarbonate)}</td>
-              <td>{display(lab.lactate)}</td>
-              <td>{display(labPfRatio(lab))}</td>
-              {onDeleteLab && (
-                <td>
-                  <button className="icon-button danger compact-icon" type="button" title="Borrar control" onClick={() => onDeleteLab(lab)}>
-                    <Trash2 size={15} />
-                  </button>
-                </td>
-              )}
+    <div className="lab-trend-panel">
+      <LabTrendSparklines labs={rows} />
+      <div className="lab-table-wrap">
+        <table className="lab-table">
+          <thead>
+            <tr>
+              <th>Fecha/hora</th>
+              <th>Na</th>
+              <th>K</th>
+              <th>Mg</th>
+              <th>P</th>
+              <th>Ca</th>
+              <th>Cr</th>
+              <th>pH</th>
+              <th>pCO2</th>
+              <th>HCO3</th>
+              <th>Lact</th>
+              <th>P/F</th>
+              {onDeleteLab && <th></th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((lab) => (
+              <tr key={lab._id}>
+                <td>{formatDate(lab.collectedAt || lab.createdAt)}</td>
+                <td>{display(lab.sodium)}</td>
+                <td>{display(lab.potassium)}</td>
+                <td>{display(lab.magnesium)}</td>
+                <td>{display(lab.phosphorus)}</td>
+                <td>{display(lab.calciumIonized ?? lab.calciumTotal)}</td>
+                <td>{display(lab.creatinine)}</td>
+                <td>{display(lab.ph)}</td>
+                <td>{display(lab.pco2)}</td>
+                <td>{display(lab.bicarbonate)}</td>
+                <td>{display(lab.lactate)}</td>
+                <td>{display(labPfRatio(lab))}</td>
+                {onDeleteLab && (
+                  <td>
+                    <button className="icon-button danger compact-icon" type="button" title="Borrar control" onClick={() => onDeleteLab(lab)}>
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
+}
+
+function LabTrendSparklines({ labs }) {
+  const chronological = [...labs].reverse();
+  const series = [
+    ["Na", "sodium", "mmol/L"],
+    ["K", "potassium", "mmol/L"],
+    ["pH", "ph", ""],
+    ["HCO3", "bicarbonate", "mmol/L"],
+    ["Lact", "lactate", "mmol/L"],
+    ["P/F", "pfRatio", ""]
+  ];
+  return (
+    <div className="trend-grid">
+      {series.map(([label, key, unit]) => {
+        const points = chronological
+          .map((lab) => key === "pfRatio" ? labPfRatio(lab) : lab[key])
+          .map((value) => Number(value))
+          .filter((value) => Number.isFinite(value));
+        const latest = points.at(-1);
+        return (
+          <article className="trend-card" key={key}>
+            <span><small>{label}</small><strong>{latest === undefined ? "—" : latest}{unit ? ` ${unit}` : ""}</strong></span>
+            <Sparkline values={points} />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function Sparkline({ values }) {
+  if (!values.length) return <div className="sparkline empty">Sin datos</div>;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+    const y = 34 - ((value - min) / range) * 28;
+    return `${roundForSvg(x)},${roundForSvg(y)}`;
+  }).join(" ");
+  return (
+    <svg className="sparkline" viewBox="0 0 100 38" role="img" aria-label="Tendencia">
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {values.map((value, index) => {
+        const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+        const y = 34 - ((value - min) / range) * 28;
+        return <circle key={`${value}-${index}`} cx={roundForSvg(x)} cy={roundForSvg(y)} r="2.8" />;
+      })}
+    </svg>
+  );
+}
+
+function roundForSvg(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function truncateText(value, maxLength) {

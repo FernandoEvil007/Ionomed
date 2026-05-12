@@ -426,6 +426,35 @@ export async function createUser(data) {
   return findUserById(result.id);
 }
 
+export async function listInstitutionUsers(institutionId) {
+  const rows = await all(
+    `SELECT id, institutionId, fullName, email, documentId, serviceArea, accessRole,
+            professionalRole, acceptedClinicalTerms, isActive, createdAt, updatedAt
+     FROM users
+     WHERE institutionId = ?
+     ORDER BY isActive DESC, lower(fullName) ASC`,
+    [institutionId]
+  );
+  return rows.map(normalizeUser);
+}
+
+export async function updateInstitutionUser(userId, institutionId, patch = {}) {
+  const current = await get("SELECT * FROM users WHERE id = ? AND institutionId = ?", [userId, institutionId]);
+  if (!current) return null;
+  const nextAccessRole = patch.accessRole || current.accessRole;
+  const nextIsActive = patch.isActive === undefined ? current.isActive : bool(patch.isActive);
+  await run(
+    "UPDATE users SET accessRole = ?, isActive = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND institutionId = ?",
+    [nextAccessRole, nextIsActive, userId, institutionId]
+  );
+  return normalizeUser(await get(
+    `SELECT id, institutionId, fullName, email, documentId, serviceArea, accessRole,
+            professionalRole, acceptedClinicalTerms, isActive, createdAt, updatedAt
+     FROM users WHERE id = ? AND institutionId = ?`,
+    [userId, institutionId]
+  ));
+}
+
 export async function updateUserPassword(userId, passwordHash) {
   await run("UPDATE users SET passwordHash = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?", [passwordHash, userId]);
   return findUserById(userId);

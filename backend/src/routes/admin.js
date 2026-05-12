@@ -3,7 +3,9 @@ import { adminRequired, authRequired } from "../middleware/auth.js";
 import {
   createBackup,
   findInstitutionById,
+  listInstitutionUsers,
   restoreBackup,
+  updateInstitutionUser,
   updateInstitutionSettings
 } from "../store.js";
 
@@ -45,6 +47,26 @@ router.put("/settings", adminRequired, async (req, res, next) => {
     const institution = await updateInstitutionSettings(req.user.institutionId, req.body.settings || req.body);
     if (!institution) return res.status(404).json({ message: "Institucion no encontrada" });
     res.json({ settings: institution.settings, institution });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/users", adminRequired, async (req, res, next) => {
+  try {
+    res.json(await listInstitutionUsers(req.user.institutionId));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/users/:id", adminRequired, async (req, res, next) => {
+  try {
+    const accessRole = ["admin", "clinico"].includes(req.body?.accessRole) ? req.body.accessRole : undefined;
+    const isActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : undefined;
+    const user = await updateInstitutionUser(req.params.id, req.user.institutionId, { accessRole, isActive });
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json(user);
   } catch (error) {
     next(error);
   }
