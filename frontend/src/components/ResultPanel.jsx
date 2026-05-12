@@ -40,15 +40,17 @@ export function ResultPanel({
 
   const calc = evaluation.calculations || {};
   const orders = activeClinicalOrders(evaluation.orders || [], orderHistory || []);
-  const evaluationWithActiveOrders = { ...evaluation, orders };
+  const electrolyteOrders = orders.filter((order) => !isGasometricOrder(order));
+  const evaluationWithActiveOrders = { ...evaluation, orders: electrolyteOrders };
   const latestLab = patientDetails?.labs?.[0] || null;
   const labText = latestLab ? formatShortDate(latestLab.collectedAt || latestLab.createdAt) : "Evaluación no guardada";
-  const activeElectrolytes = new Set(orders.map((order) => disorderKey(order.disorder)));
+  const activeElectrolytes = new Set(electrolyteOrders.map((order) => disorderKey(order.disorder)));
   const outdatedOrders = latestLab?._id
     ? (orderHistory || []).filter((order) =>
       order?.labId &&
       String(order.labId) !== String(latestLab._id) &&
-      !["done", "not_done"].includes(order.status)
+      !["done", "not_done"].includes(order.status) &&
+      !isGasometricOrder(order)
     )
     : [];
 
@@ -77,16 +79,16 @@ export function ResultPanel({
           <strong>Órdenes activas previas:</strong> {outdatedOrders.length} reposición(es) activa(s) fueron creadas con un laboratorio anterior. Recalcula o confirma antes de copiar.
         </div>
       )}
-      <PatientContextHeader patient={patientDetails?.patient} latestLab={latestLab} labText={labText} orders={orders} />
+      <PatientContextHeader patient={patientDetails?.patient} latestLab={latestLab} labText={labText} orders={electrolyteOrders} />
       <ClinicalResultSummary
         labText={labText}
         disorderCount={(evaluation.classifications || []).length}
         electrolyteCount={activeElectrolytes.size}
-        orderCount={orders.length}
+        orderCount={electrolyteOrders.length}
       />
-      <MobileQuickResult orders={orders} />
+      <MobileQuickResult orders={electrolyteOrders} />
       <FollowUpPanel followUp={evaluation.followUp} />
-      <RepositionSummary orders={orders} />
+      <RepositionSummary orders={electrolyteOrders} />
 
       <FormSection title="Cálculos automáticos" summary="Renal, correcciones y déficits">
         <div className="metrics">
@@ -107,23 +109,25 @@ export function ResultPanel({
 
       <ArterialGasPanel gas={calc.arterialGas} />
 
-      <FormSection title="Órdenes médicas sugeridas" summary={`${orders.length} orden(es) lista(s) para revisar`} open>
-        <div className="result-actions compact">
-          <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
-          <button className="btn secondary" type="button" onClick={printSummary}>Imprimir / PDF</button>
-        </div>
-        {orders.map((order, idx) => (
-          <OrderCard
-            order={order}
-            calculations={calc}
-            key={order._id || idx}
-            index={idx}
-            total={orders.length}
-            onOrderUpdated={onOrderUpdated}
-            settings={settings}
-          />
-        ))}
-      </FormSection>
+      {electrolyteOrders.length > 0 && (
+        <FormSection title="Órdenes médicas sugeridas" summary={`${electrolyteOrders.length} orden(es) lista(s) para revisar`} open>
+          <div className="result-actions compact">
+            <button className="btn ghost" type="button" onClick={downloadSummary}><Download size={18} /> Exportar resumen</button>
+            <button className="btn secondary" type="button" onClick={printSummary}>Imprimir</button>
+          </div>
+          {electrolyteOrders.map((order, idx) => (
+            <OrderCard
+              order={order}
+              calculations={calc}
+              key={order._id || idx}
+              index={idx}
+              total={electrolyteOrders.length}
+              onOrderUpdated={onOrderUpdated}
+              settings={settings}
+            />
+          ))}
+        </FormSection>
+      )}
 
       <FormSection title="Validación y seguridad" summary="Escenarios críticos del motor">
         <ClinicalValidationPanel embedded />
@@ -132,6 +136,10 @@ export function ResultPanel({
       <PatientHistorySection labs={patientDetails?.labs || []} orders={orderHistory || []} onDeleteLab={onDeleteLab} />
     </div>
   );
+}
+
+function isGasometricOrder(order) {
+  return /gasometr/i.test(order?.disorder || "");
 }
 
 function PatientContextHeader({ patient, latestLab, labText, orders }) {
