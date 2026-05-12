@@ -16,7 +16,6 @@ export function ResultPanel({
     return (
       <div className="grid">
         <div className="alert">Ingresa datos del paciente y laboratorios para generar una evaluación.</div>
-        <components.ClinicalValidationPanel />
       </div>
     );
   }
@@ -30,7 +29,6 @@ export function ResultPanel({
   } = helpers;
   const {
     ArterialGasPanel,
-    ClinicalValidationPanel,
     FollowUpPanel,
     MobileQuickResult,
     OrderCard,
@@ -128,10 +126,6 @@ export function ResultPanel({
           ))}
         </FormSection>
       )}
-
-      <FormSection title="Validación y seguridad" summary="Escenarios críticos del motor">
-        <ClinicalValidationPanel embedded />
-      </FormSection>
 
       <PatientHistorySection labs={patientDetails?.labs || []} orders={orderHistory || []} onDeleteLab={onDeleteLab} />
     </div>
