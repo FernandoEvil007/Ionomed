@@ -970,10 +970,16 @@ function gasOrders(patient, lab, calculations) {
     lactate: gas.lactate,
     pfRatio: gas.pfRatio,
     aaGradient: gas.aaGradient,
+    expectedAaGradient: gas.expectedAaGradient,
     correctedAnionGap: gas.correctedAnionGap,
     deltaRatio: gas.deltaRatio,
+    deltaRatioStatus: gas.deltaRatioStatus,
     primaryDisorder: gas.primaryDisorder,
-    compensationAssessment: gas.compensationAssessment
+    compensationAssessment: gas.compensationAssessment,
+    oxygenMechanism: gas.oxygenMechanism,
+    urgentFlags: gas.urgentFlags || [],
+    etiologyHints: gas.etiologyHints || [],
+    missingData: gas.missingData || []
   };
   const commonControls = [
     "Repetir gasometria y lactato segun severidad y respuesta clinica",
@@ -992,9 +998,10 @@ function gasOrders(patient, lab, calculations) {
       controls: [
         "Lactato, electrolitos, anion gap, cetonas si aplica, creatinina y gases de control",
         "Buscar sepsis, hipoperfusion, falla renal, cetoacidosis, diarrea/toxicos segun contexto",
+        ...(gas.missingData || []).map((item) => `Completar dato si aplica: ${item}`),
         ...commonControls
       ],
-      text: `Paciente con ${gas.primaryDisorder}. Compensacion: ${gas.compensationAssessment}. Anion gap corregido ${gas.correctedAnionGap ?? "no calculable"} mEq/L, lactato ${gas.lactate ?? "no disponible"} mmol/L. Priorizar tratamiento de la causa: perfusion, sepsis/choque, falla renal, cetoacidosis, perdidas digestivas o toxicos segun contexto. Si pH menor de 7.1, hiperkalemia grave, inestabilidad o falla renal avanzada, considerar bicarbonato IV/valoracion UCI-nefrologia segun protocolo institucional. Repetir gasometria, lactato y electrolitos segun severidad.`,
+      text: `Paciente con ${gas.primaryDisorder}. Razonamiento: ${gas.diagnosticExplanation}. Delta ratio: ${gas.deltaRatio ?? "no calculable"} (${gas.deltaRatioStatus}). Etiologias probables: ${(gas.etiologyHints || []).join("; ") || "definir segun contexto"}. Priorizar tratamiento de la causa: perfusion, sepsis/choque, falla renal, cetoacidosis, perdidas digestivas o toxicos segun contexto. Si pH menor de 7.1, hiperkalemia grave, inestabilidad o falla renal avanzada, considerar bicarbonato IV/valoracion UCI-nefrologia segun protocolo institucional. Repetir gasometria, lactato y electrolitos segun severidad.`,
       justification: "La acidosis metabolica requiere confirmar compensacion, anion gap y causa antes de intervenciones correctivas."
     }));
   }
@@ -1011,7 +1018,7 @@ function gasOrders(patient, lab, calculations) {
         "Revisar vomito/sonda, diureticos, exceso de bicarbonato, hipokalemia e hipocloremia",
         ...commonControls
       ],
-      text: `Paciente con ${gas.primaryDisorder}. Compensacion: ${gas.compensationAssessment}. Evaluar volemia, cloro, potasio, magnesio, uso de diureticos, vomito/sonda nasogastrica o carga alcalina. Corregir hipokalemia/hipocloremia y causa de base; considerar solucion salina 0.9% si alcalosis sensible a cloro e hipovolemia, evitando sobrecarga si ERC/falla cardiaca. Repetir gases y electrolitos segun respuesta.`,
+      text: `Paciente con ${gas.primaryDisorder}. Razonamiento: ${gas.diagnosticExplanation}. Evaluar volemia, cloro, potasio, magnesio, uso de diureticos, vomito/sonda nasogastrica o carga alcalina. Corregir hipokalemia/hipocloremia y causa de base; considerar solucion salina 0.9% si alcalosis sensible a cloro e hipovolemia, evitando sobrecarga si ERC/falla cardiaca. Repetir gases y electrolitos segun respuesta.`,
       justification: "La alcalosis metabolica suele requerir correccion de cloro, potasio, volemia y causa precipitante."
     }));
   }
@@ -1028,7 +1035,7 @@ function gasOrders(patient, lab, calculations) {
         "Considerar soporte ventilatorio no invasivo/invasivo segun contexto",
         ...commonControls
       ],
-      text: `Paciente con ${gas.primaryDisorder}. pCO2 ${gas.pco2 ?? "no disponible"} mmHg, pH ${gas.ph ?? "no disponible"}. Evaluar depresion del sensorio, EPOC/asma, fatiga muscular, sedacion/opioides, neumonia o edema pulmonar. Optimizar ventilacion y considerar soporte ventilatorio segun severidad, trabajo respiratorio y estado mental. Repetir gasometria tras intervencion.`,
+      text: `Paciente con ${gas.primaryDisorder}. Razonamiento: ${gas.diagnosticExplanation}. ${gas.oxygenMechanism ? `Oxigenacion: ${gas.oxygenMechanism}. ` : ""}Evaluar depresion del sensorio, EPOC/asma, fatiga muscular, sedacion/opioides, neumonia o edema pulmonar. Optimizar ventilacion y considerar soporte ventilatorio segun severidad, trabajo respiratorio y estado mental. Repetir gasometria tras intervencion.`,
       justification: "La acidosis respiratoria indica ventilacion alveolar insuficiente y puede requerir soporte ventilatorio."
     }));
   }
@@ -1045,7 +1052,7 @@ function gasOrders(patient, lab, calculations) {
         "Repetir gases si cambia el soporte respiratorio o estado clinico",
         ...commonControls
       ],
-      text: `Paciente con ${gas.primaryDisorder}. pCO2 ${gas.pco2 ?? "no disponible"} mmHg. Buscar causas de hiperventilacion: hipoxemia, dolor/ansiedad, fiebre, sepsis, tromboembolismo pulmonar, embarazo, hepatopatia o ventilacion mecanica excesiva. Ajustar soporte respiratorio y tratar causa de base; evitar sedacion como unica respuesta sin descartar hipoxemia o sepsis.`,
+      text: `Paciente con ${gas.primaryDisorder}. Razonamiento: ${gas.diagnosticExplanation}. Buscar causas de hiperventilacion: hipoxemia, dolor/ansiedad, fiebre, sepsis, tromboembolismo pulmonar, embarazo, hepatopatia o ventilacion mecanica excesiva. Ajustar soporte respiratorio y tratar causa de base; evitar sedacion como unica respuesta sin descartar hipoxemia o sepsis.`,
       justification: "La alcalosis respiratoria suele ser marcador de hiperventilacion por causa respiratoria, sistemica o iatrogenica."
     }));
   }
@@ -1062,7 +1069,7 @@ function gasOrders(patient, lab, calculations) {
         "Correlacionar P/F con imagen, auscultacion, balance hidrico y causa probable",
         ...commonControls
       ],
-      text: `Paciente con alteracion de oxigenacion: P/F ${gas.pfRatio}, pO2 ${gas.po2 ?? "no disponible"} mmHg con FiO2 ${gas.fio2 ? Math.round(gas.fio2 * 100) : "no disponible"}%. Ajustar oxigenoterapia para meta de saturacion segun contexto, evaluar necesidad de alto flujo/ventilacion no invasiva/invasiva, buscar neumonia, edema pulmonar, atelectasia, TEP, shunt o SDRA segun clinica. Repetir gasometria tras cambios de soporte.`,
+      text: `Paciente con alteracion de oxigenacion: P/F ${gas.pfRatio}, pO2 ${gas.po2 ?? "no disponible"} mmHg con FiO2 ${gas.fio2 ? Math.round(gas.fio2 * 100) : "no disponible"}%. Gradiente A-a ${gas.aaGradient ?? "no calculable"} mmHg; mecanismo probable: ${gas.oxygenMechanism}. Ajustar oxigenoterapia para meta de saturacion segun contexto, evaluar necesidad de alto flujo/ventilacion no invasiva/invasiva, buscar neumonia, edema pulmonar, atelectasia, TEP, shunt o SDRA segun clinica. Repetir gasometria tras cambios de soporte.`,
       justification: "La relacion P/F permite graduar alteracion de oxigenacion y necesidad de soporte respiratorio."
     }));
   }

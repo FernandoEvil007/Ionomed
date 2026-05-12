@@ -149,14 +149,51 @@ const gasCases = [
   {
     name: "Gasometria detecta acidosis metabolica con compensacion apropiada",
     lab: { ph: 7.25, pco2: 26, bicarbonate: 12, sodium: 140, chloride: 105, lactate: 5, albumin: 4, po2: 80, fio2: 21 },
-    expectPrimary: "acidosis metabolica",
+    expectPrimary: "acidosis metabolica compensada con anion gap elevado",
     expectCompensation: "apropiada",
     expectOrder: "Acidosis metabolica gasometrica"
   },
   {
-    name: "Gasometria detecta trastorno mixto metabolico y respiratorio",
+    name: "Gasometria detecta acidosis metabolica no compensada con acidosis respiratoria asociada",
     lab: { ph: 7.12, pco2: 55, bicarbonate: 17, sodium: 138, chloride: 100, albumin: 3, po2: 70, fio2: 40 },
-    expectPrimary: "trastorno mixto",
+    expectPrimary: "acidosis metabolica no compensada con anion gap elevado con acidosis respiratoria asociada",
+    expectOrder: "Alteracion de oxigenacion gasometrica"
+  },
+  {
+    name: "Gasometria detecta acidosis metabolica con anion gap normal",
+    lab: { ph: 7.28, pco2: 35, bicarbonate: 18, sodium: 140, chloride: 112, albumin: 4 },
+    expectPrimary: "acidosis metabolica compensada con anion gap normal",
+    expectOrder: "Acidosis metabolica gasometrica"
+  },
+  {
+    name: "Gasometria detecta acidosis respiratoria compensada cronica",
+    lab: { ph: 7.36, pco2: 60, bicarbonate: 31, sodium: 140, chloride: 100, albumin: 4 },
+    expectPrimary: "acidosis respiratoria compensada cronica",
+    expectOrder: "Acidosis respiratoria gasometrica"
+  },
+  {
+    name: "Gasometria detecta acidosis respiratoria no compensada con acidosis metabolica",
+    lab: { ph: 7.22, pco2: 60, bicarbonate: 22, sodium: 140, chloride: 106, albumin: 4 },
+    expectPrimary: "acidosis respiratoria no compensada con acidosis metabolica asociada",
+    expectOrder: "Acidosis respiratoria gasometrica"
+  },
+  {
+    name: "Gasometria detecta alcalosis metabolica compensada",
+    lab: { ph: 7.49, pco2: 48, bicarbonate: 34, sodium: 140, chloride: 94, albumin: 4 },
+    expectPrimary: "alcalosis metabolica compensada",
+    expectOrder: "Alcalosis metabolica gasometrica"
+  },
+  {
+    name: "Gasometria detecta alcalosis respiratoria compensada cronica",
+    lab: { ph: 7.44, pco2: 25, bicarbonate: 16, sodium: 140, chloride: 108, albumin: 4 },
+    expectPrimary: "alcalosis respiratoria compensada cronica",
+    expectOrder: "Alcalosis respiratoria gasometrica"
+  },
+  {
+    name: "Gasometria clasifica mecanismo de oxigenacion con gradiente A-a",
+    lab: { ph: 7.42, pco2: 38, bicarbonate: 24, po2: 58, fio2: 28, oxygenDevice: "canula", sampleType: "arterial", altitudeMeters: 2600 },
+    expectPrimary: "sin trastorno gasometrico primario evidente",
+    expectMechanism: "alteracion",
     expectOrder: "Alteracion de oxigenacion gasometrica"
   }
 ];
@@ -199,9 +236,10 @@ for (const gasCase of gasCases) {
   const primaryOk = gas?.primaryDisorder?.includes(gasCase.expectPrimary);
   const compensationOk = !gasCase.expectCompensation || gas?.compensationAssessment?.includes(gasCase.expectCompensation);
   const orderOk = !gasCase.expectOrder || evaluation.orders.some((order) => order.disorder === gasCase.expectOrder);
-  if (!primaryOk || !compensationOk || !orderOk) {
+  const mechanismOk = !gasCase.expectMechanism || gas?.oxygenMechanism?.includes(gasCase.expectMechanism);
+  if (!primaryOk || !compensationOk || !orderOk || !mechanismOk) {
     failures += 1;
-    console.error(`FALLO: ${gasCase.name}. Recibido: ${gas?.primaryDisorder || "sin gas"} / ${gas?.compensationAssessment || "sin compensacion"}`);
+    console.error(`FALLO: ${gasCase.name}. Recibido: ${gas?.primaryDisorder || "sin gas"} / ${gas?.compensationAssessment || "sin compensacion"} / ${gas?.oxygenMechanism || "sin mecanismo"}`);
   } else {
     console.log(`OK: ${gasCase.name}`);
   }

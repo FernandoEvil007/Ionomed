@@ -14,7 +14,7 @@ export function DashboardPanels({ dashboard, onSelectPatient, formatShortDate })
           <h2>Alertas activas</h2>
           <span className="badge">{alerts.length}</span>
         </div>
-        {alerts.length === 0 && <p>No hay alertas criticas activas.</p>}
+        {alerts.length === 0 && <p>No hay alertas críticas activas.</p>}
         {visibleAlerts.map((alert) => (
           <button className="dashboard-row" key={alert.orderId} onClick={() => onSelectPatient({ patientId: alert.patientId })}>
             <span>
@@ -26,7 +26,7 @@ export function DashboardPanels({ dashboard, onSelectPatient, formatShortDate })
         ))}
         {hiddenAlerts.length > 0 && (
           <details className="dashboard-more">
-            <summary>Ver {hiddenAlerts.length} alerta(s) mas</summary>
+            <summary>Ver {hiddenAlerts.length} alerta(s) más</summary>
             <div className="controls-list tight">
               {hiddenAlerts.map((alert) => (
                 <button className="dashboard-row" key={alert.orderId} onClick={() => onSelectPatient({ patientId: alert.patientId })}>
@@ -61,7 +61,7 @@ export function DashboardPanels({ dashboard, onSelectPatient, formatShortDate })
           </div>
         {hiddenControls.length > 0 && (
           <details className="dashboard-more">
-            <summary>Ver {hiddenControls.length} control(es) mas</summary>
+            <summary>Ver {hiddenControls.length} control(es) más</summary>
             <div className="controls-list tight">
               {hiddenControls.map((control) => (
                 <button className={`dashboard-row compact-row ${control.overdue ? "overdue" : ""}`} key={control.orderId} onClick={() => onSelectPatient({ patientId: control.patientId })}>

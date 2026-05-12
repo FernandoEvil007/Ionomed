@@ -337,16 +337,16 @@ function MainApp({ session, onLogout }) {
         {message && <div className="success">{message}</div>}
 
         <section className="dashboard-summary">
-          <div className="summary-card dashboard-hero">
+          <div className="summary-card dashboard-hero clinical-command-center">
             <div>
-              <h1>Dashboard clinico</h1>
-              <p>Clasificacion, calculo renal y ordenes medicas sugeridas.</p>
+              <h1>Centro clínico IonoMed</h1>
+              <p>Prioriza pacientes, interpreta electrolitos y gases arteriales, y consolida órdenes sugeridas con controles de seguridad.</p>
             </div>
             <div className="metrics">
-              <div className="metric"><strong>{dashboard?.counts?.activePatients ?? patients.length}</strong><small>Pacientes activos</small></div>
-              <div className="metric"><strong>{dashboard?.counts?.highAlerts ?? 0}</strong><small>Alertas</small></div>
-              <div className="metric"><strong>{dashboard?.counts?.overdueControls ?? 0}</strong><small>Vencidos</small></div>
-              <div className="metric"><strong>6</strong><small>Módulos</small></div>
+              <div className="metric metric-command"><strong>{dashboard?.counts?.activePatients ?? patients.length}</strong><small>Pacientes activos</small></div>
+              <div className="metric metric-danger"><strong>{dashboard?.counts?.highAlerts ?? 0}</strong><small>Alertas críticas</small></div>
+              <div className="metric metric-warning"><strong>{dashboard?.counts?.overdueControls ?? 0}</strong><small>Controles vencidos</small></div>
+              <div className="metric metric-command"><strong>6</strong><small>Módulos clínicos</small></div>
             </div>
           </div>
         </section>
@@ -444,7 +444,7 @@ function MainApp({ session, onLogout }) {
               </button>
               <button className={`tab ${tab === "resultado" ? "active" : ""}`} onClick={() => selectTab("resultado")} type="button">
                 <FileText size={16} />
-                <span>Resultado</span>
+                <span>Interpretación</span>
               </button>
               <div className="more-tab" ref={moreMenuRef}>
                 <button
@@ -1322,15 +1322,15 @@ function ArterialGasPanel({ gas }) {
 
   return (
     <FormSection title="Interpretación gasométrica" summary={gas.primaryDisorder || "Sin gasometría completa"} open>
-      <div className="gas-hero">
+      <div className="gas-hero gas-report-header">
         <span>
-          <small>Diagnóstico gasométrico probable</small>
+          <small>Diagnóstico gasométrico principal</small>
           <strong>{gas.primaryDisorder}</strong>
         </span>
         <b className={`badge ${gas.acidBaseState === "acidemia" || gas.acidBaseState === "alcalemia" ? "alta" : "leve"}`}>{gas.acidBaseState}</b>
       </div>
       <div className="gas-grid">
-        <section className="gas-section">
+        <section className="gas-section gas-section-primary">
           <strong>Ácido-base</strong>
           <div className="metrics">
             <Metric label="pH" value={display(gas.ph)} />
@@ -1338,17 +1338,23 @@ function ArterialGasPanel({ gas }) {
             <Metric label="HCO3" value={display(gas.hco3, "mmol/L")} />
             <Metric label="BE" value={display(gas.baseExcess, "mmol/L")} />
             <Metric label="Lactato" value={display(gas.lactate, "mmol/L")} />
+            <Metric label="Compensación" value={gas.compensationStatus || "no calculable"} />
           </div>
         </section>
-        <section className="gas-section">
+        <section className="gas-section gas-section-primary">
           <strong>Brechas y mezcla</strong>
           <div className="metrics">
             <Metric label="Anion gap" value={display(gas.anionGap, "mEq/L")} />
             <Metric label="AG corregido" value={display(gas.correctedAnionGap, "mEq/L")} />
+            <Metric label="Estado AG" value={gas.anionGapStatus || "no calculable"} />
             <Metric label="Delta ratio" value={display(gas.deltaRatio)} />
+            <Metric label="Lectura delta" value={gas.deltaRatioStatus || "no calculable"} />
           </div>
+          {gas.associatedProcesses?.length > 0 && (
+            <p><strong>Asociado:</strong> {gas.associatedProcesses.join(" + ")}</p>
+          )}
         </section>
-        <section className="gas-section">
+        <section className="gas-section gas-section-primary">
           <strong>Oxigenación</strong>
           <div className="metrics">
             <Metric label="pO2" value={display(gas.po2, "mmHg")} />
@@ -1356,14 +1362,50 @@ function ArterialGasPanel({ gas }) {
             <Metric label="SatO2" value={display(gas.oxygenSaturation, "%")} />
             <Metric label="P/F" value={display(gas.pfRatio)} />
             <Metric label="A-a" value={display(gas.aaGradient, "mmHg")} />
+            <Metric label="A-a esperado" value={display(gas.expectedAaGradient, "mmHg")} />
             <Metric label="Grado" value={gas.oxygenation?.pfRatio || "no disponible"} />
+            <Metric label="Mecanismo" value={gas.oxygenMechanism || "no clasificable"} />
           </div>
         </section>
-        <section className="gas-section highlight">
+        <section className="gas-section gas-section-secondary">
+          <strong>Contexto respiratorio</strong>
+          <div className="metrics">
+            <Metric label="Muestra" value={gas.sampleType || "arterial"} />
+            <Metric label="Soporte O2" value={gas.oxygenDevice || "no especificado"} />
+            <Metric label="Modo" value={gas.ventilatoryMode || "no especificado"} />
+            <Metric label="PEEP" value={display(gas.peep, "cmH2O")} />
+            <Metric label="FR" value={display(gas.respiratoryRate, "rpm")} />
+            <Metric label="Altitud" value={display(gas.altitudeMeters, "msnm")} />
+          </div>
+        </section>
+        <section className="gas-section highlight gas-section-secondary">
           <strong>Compensación esperada</strong>
           <p>{expectedText}</p>
           <p>{gas.compensationAssessment}</p>
         </section>
+        <section className="gas-section highlight gas-rationale">
+          <strong>Razonamiento</strong>
+          <p>{gas.diagnosticExplanation}</p>
+          {gas.etiologyHints?.length > 0 && (
+            <div className="safety-pill-list">
+              {gas.etiologyHints.map((hint, idx) => <span className="safety-pill" key={idx}>{hint}</span>)}
+            </div>
+          )}
+        </section>
+        {gas.missingData?.length > 0 && (
+          <section className="gas-section">
+            <strong>Datos que aumentan precisión</strong>
+            <p>{gas.missingData.join(", ")}</p>
+          </section>
+        )}
+        {gas.urgentFlags?.length > 0 && (
+          <section className="gas-section warning">
+            <strong>Criterios de severidad</strong>
+            <div className="safety-pill-list">
+              {gas.urgentFlags.map((flag, idx) => <span className="safety-pill warn" key={idx}>{flag}</span>)}
+            </div>
+          </section>
+        )}
         {gas.alerts?.length > 0 && (
           <section className="gas-section warning">
             <strong>Alertas gasométricas</strong>
@@ -2450,8 +2492,12 @@ function buildClinicalSummary(evaluation, patientDetails) {
       `Trastorno principal: ${gas.primaryDisorder}`,
       `Compensacion: ${gas.compensationAssessment}`,
       `Anion gap corregido: ${display(gas.correctedAnionGap, "mEq/L")}`,
+      `Delta ratio: ${display(gas.deltaRatio)} (${gas.deltaRatioStatus || "no calculable"})`,
       `P/F: ${display(gas.pfRatio)}`,
       `Gradiente A-a: ${display(gas.aaGradient, "mmHg")}`,
+      `Mecanismo de oxigenacion: ${gas.oxygenMechanism || "no clasificable"}`,
+      `Razonamiento: ${gas.diagnosticExplanation || "no disponible"}`,
+      ...((gas.etiologyHints || []).map((hint) => `- ${hint}`)),
       ...((gas.alerts || []).map((alert) => `- ${alert}`))
     ] : []),
     "",

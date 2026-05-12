@@ -228,6 +228,14 @@ export async function initStore() {
       lactate REAL,
       fio2 REAL,
       oxygenSaturation REAL,
+      temperatureC REAL,
+      altitudeMeters REAL,
+      sampleType TEXT,
+      oxygenDevice TEXT,
+      ventilatoryMode TEXT,
+      peep REAL,
+      respiratoryRate REAL,
+      tidalVolumeMl REAL,
       serumOsmolality REAL,
       urineOsmolality REAL,
       urineSodium REAL,
@@ -353,6 +361,14 @@ async function ensureLabGasColumns() {
   if (!columns.has("lactate")) await run("ALTER TABLE labs ADD COLUMN lactate REAL");
   if (!columns.has("fio2")) await run("ALTER TABLE labs ADD COLUMN fio2 REAL");
   if (!columns.has("oxygenSaturation")) await run("ALTER TABLE labs ADD COLUMN oxygenSaturation REAL");
+  if (!columns.has("temperatureC")) await run("ALTER TABLE labs ADD COLUMN temperatureC REAL");
+  if (!columns.has("altitudeMeters")) await run("ALTER TABLE labs ADD COLUMN altitudeMeters REAL");
+  if (!columns.has("sampleType")) await run("ALTER TABLE labs ADD COLUMN sampleType TEXT");
+  if (!columns.has("oxygenDevice")) await run("ALTER TABLE labs ADD COLUMN oxygenDevice TEXT");
+  if (!columns.has("ventilatoryMode")) await run("ALTER TABLE labs ADD COLUMN ventilatoryMode TEXT");
+  if (!columns.has("peep")) await run("ALTER TABLE labs ADD COLUMN peep REAL");
+  if (!columns.has("respiratoryRate")) await run("ALTER TABLE labs ADD COLUMN respiratoryRate REAL");
+  if (!columns.has("tidalVolumeMl")) await run("ALTER TABLE labs ADD COLUMN tidalVolumeMl REAL");
 }
 
 async function ensureUserRecoveryColumns() {
@@ -519,9 +535,10 @@ export async function createLab(data) {
       institutionId, patientId, createdBy, collectedAt, sodium, potassium,
       chloride, magnesium, phosphorus, calciumTotal, calciumIonized, albumin,
       glucose, creatinine, urea, bun, ph, pco2, po2, baseExcess, bicarbonate,
-      lactate, fio2, oxygenSaturation, serumOsmolality,
+      lactate, fio2, oxygenSaturation, temperatureC, altitudeMeters, sampleType,
+      oxygenDevice, ventilatoryMode, peep, respiratoryRate, tidalVolumeMl, serumOsmolality,
       urineOsmolality, urineSodium, urinePotassium, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.institutionId,
       data.patientId,
@@ -547,6 +564,14 @@ export async function createLab(data) {
       data.lactate ?? null,
       data.fio2 ?? null,
       data.oxygenSaturation ?? null,
+      data.temperatureC ?? null,
+      data.altitudeMeters ?? null,
+      text(data.sampleType),
+      text(data.oxygenDevice),
+      text(data.ventilatoryMode),
+      data.peep ?? null,
+      data.respiratoryRate ?? null,
+      data.tidalVolumeMl ?? null,
       data.serumOsmolality ?? null,
       data.urineOsmolality ?? null,
       data.urineSodium ?? null,

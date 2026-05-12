@@ -158,6 +158,10 @@ export function LabForm({ form, setForm, onSubmit, selectedPatient }) {
         </div>
       </FormSection>
       <FormSection title="3. Gases arteriales" summary="pH, ventilación, oxigenación y perfusión">
+        <div className="gas-form-intro">
+          <strong>Gasometría arterial</strong>
+          <span>Completa pH, pCO2 y HCO3 para clasificar el trastorno ácido-base; agrega pO2, FiO2 y contexto ventilatorio para precisar oxigenación.</span>
+        </div>
         <div className="grid quick-labs lab-complement-grid">
           <Num label="pH" value={form.ph} min={6.8} max={7.8} onChange={(v) => update("ph", v)} />
           <Num label="pCO2 mmHg" value={form.pco2} min={10} max={120} onChange={(v) => update("pco2", v)} />
@@ -167,6 +171,39 @@ export function LabForm({ form, setForm, onSubmit, selectedPatient }) {
           <Num label="Lactato mmol/L" value={form.lactate} min={0} max={30} onChange={(v) => update("lactate", v)} />
           <Num label="FiO2 %" value={form.fio2} min={21} max={100} onChange={(v) => update("fio2", v)} />
           <Num label="SatO2 %" value={form.oxygenSaturation} min={40} max={100} onChange={(v) => update("oxygenSaturation", v)} />
+          <Num label="Temperatura C" value={form.temperatureC} min={25} max={45} onChange={(v) => update("temperatureC", v)} />
+          <Num label="Altitud msnm" value={form.altitudeMeters} min={0} max={6000} onChange={(v) => update("altitudeMeters", v)} />
+          <Num label="PEEP cmH2O" value={form.peep} min={0} max={30} onChange={(v) => update("peep", v)} />
+          <Num label="FR rpm" value={form.respiratoryRate} min={0} max={80} onChange={(v) => update("respiratoryRate", v)} />
+          <Num label="Vol corriente mL" value={form.tidalVolumeMl} min={0} max={1500} onChange={(v) => update("tidalVolumeMl", v)} />
+          <label>Tipo de muestra
+            <select value={form.sampleType || "arterial"} onChange={(e) => update("sampleType", e.target.value)}>
+              <option value="arterial">Arterial</option>
+              <option value="venosa">Venosa</option>
+              <option value="capilar">Capilar</option>
+            </select>
+          </label>
+          <label>Soporte de oxigeno
+            <select value={form.oxygenDevice || "aire_ambiente"} onChange={(e) => update("oxygenDevice", e.target.value)}>
+              <option value="aire_ambiente">Aire ambiente</option>
+              <option value="canula">Canula nasal</option>
+              <option value="mascara">Mascara simple</option>
+              <option value="reservorio">Mascara con reservorio</option>
+              <option value="alto_flujo">Alto flujo</option>
+              <option value="ventilacion_no_invasiva">Ventilacion no invasiva</option>
+              <option value="ventilacion_mecanica">Ventilacion mecanica</option>
+              <option value="no_especificado">No especificado</option>
+            </select>
+          </label>
+          <label>Modo ventilatorio
+            <select value={form.ventilatoryMode || "espontanea"} onChange={(e) => update("ventilatoryMode", e.target.value)}>
+              <option value="espontanea">Espontanea</option>
+              <option value="vni">VNI</option>
+              <option value="mecanica_controlada">Mecanica controlada</option>
+              <option value="mecanica_asistida">Mecanica asistida</option>
+              <option value="no_especificado">No especificado</option>
+            </select>
+          </label>
         </div>
         {gasWarnings.length > 0 && (
           <div className="error">
@@ -198,7 +235,12 @@ function gasFieldWarnings(form) {
     ["bicarbonate", "HCO3", 2, 60],
     ["lactate", "Lactato", 0, 30],
     ["fio2", "FiO2", 21, 100],
-    ["oxygenSaturation", "SatO2", 40, 100]
+    ["oxygenSaturation", "SatO2", 40, 100],
+    ["temperatureC", "Temperatura", 25, 45],
+    ["altitudeMeters", "Altitud", 0, 6000],
+    ["peep", "PEEP", 0, 30],
+    ["respiratoryRate", "FR", 0, 80],
+    ["tidalVolumeMl", "Volumen corriente", 0, 1500]
   ];
   return definitions.flatMap(([field, label, min, max]) => {
     const raw = form[field];
