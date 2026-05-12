@@ -78,6 +78,7 @@ export function ResultPanel({
         </div>
       )}
       <PatientContextHeader patient={patientDetails?.patient} latestLab={latestLab} labText={labText} orders={electrolyteOrders} />
+      <InterpretationHero evaluation={evaluation} orders={electrolyteOrders} labText={labText} />
       <ClinicalResultSummary
         labText={labText}
         disorderCount={(evaluation.classifications || []).length}
@@ -157,6 +158,27 @@ function PatientContextHeader({ patient, latestLab, labText, orders }) {
         <span><small>Prioridad</small><b className={`badge ${activePriority}`}>{activePriority}</b></span>
         <span><small>Órdenes activas</small><b>{orders?.length || 0}</b></span>
         {latestLab?.ph && <span><small>pH</small><b>{latestLab.ph}</b></span>}
+      </div>
+    </section>
+  );
+}
+
+function InterpretationHero({ evaluation, orders, labText }) {
+  const diagnosis = evaluation?.diagnosis?.[0]?.title || orders?.[0]?.disorder || "Sin trastorno activo";
+  const priority = orders?.[0]?.priority || "baja";
+  const nextControl = orders?.flatMap((order) => order.controls || [])?.[0] || "Control según evolución";
+  const activeDisorders = [...new Set((orders || []).map((order) => order.disorder).filter(Boolean))];
+  return (
+    <section className={`interpretation-hero priority-${priority}`}>
+      <div>
+        <small>Interpretación clínica</small>
+        <h2>{diagnosis}</h2>
+        <p>{activeDisorders.length ? activeDisorders.join(" · ") : `Último laboratorio: ${labText}`}</p>
+      </div>
+      <div className="interpretation-actions">
+        <span><small>Prioridad</small><b className={`badge ${priority}`}>{priority}</b></span>
+        <span><small>Reposiciones</small><b>{orders?.length || 0}</b></span>
+        <span><small>Próximo control</small><b>{nextControl}</b></span>
       </div>
     </section>
   );

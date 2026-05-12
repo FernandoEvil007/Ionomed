@@ -465,6 +465,8 @@ function MainApp({ session, onLogout }) {
                   <span>Más</span>
                 </button>
                 {moreMenuOpen && (
+                  <>
+                  <div className="more-sheet-backdrop" onClick={() => setMoreMenuOpen(false)} aria-hidden="true" />
                   <div className="more-menu">
                     {moreTabs.map(([value, label]) => (
                       <button key={value} type="button" className={tab === value ? "active" : ""} onClick={() => selectTab(value)}>
@@ -472,6 +474,7 @@ function MainApp({ session, onLogout }) {
                       </button>
                     ))}
                   </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2315,19 +2318,35 @@ function OrderCard({ order, calculations, onOrderUpdated, settings, index = 0, t
       <OrderFinalBlocks sections={orderSections} />
       <ElectrolyteSolutionSelector order={order} calculations={calculations} onTextCalculated={handleCalculatedText} settings={settings} />
       <OrderSafety order={order} />
+      <details className="order-edit-details">
+        <summary>
+          <span>
+            <strong>Orden editable</strong>
+            <small>Texto completo para revisar, ajustar y guardar</small>
+          </span>
+        </summary>
       <label>Orden médica sugerida editable
         <textarea value={text} onChange={(e) => setText(e.target.value)} />
       </label>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      </details>
+      <div className="order-status-actions">
         <button className="btn secondary" onClick={saveEdit} disabled={!order._id || saving}>Guardar edicion</button>
         <button className="btn primary" onClick={markDone} disabled={!order._id || saving}>Marcar realizada</button>
         <button className="btn danger" onClick={markNotDone} disabled={!order._id || saving}>No realizada</button>
       </div>
+      <details className="order-edit-details">
+        <summary>
+          <span>
+            <strong>Comentario y auditoria</strong>
+            <small>Notas del equipo y texto final aplicado</small>
+          </span>
+        </summary>
       <label>Comentario medico
         <textarea className="comment-box" value={comment} onChange={(e) => setComment(e.target.value)} />
       </label>
       <button className="btn ghost" onClick={saveComment} disabled={!order._id || saving}>Guardar comentario</button>
       <div className="order-text">{text}</div>
+      </details>
       {(order.auditEvents || []).length > 0 && (
         <div className="audit-log">
           <strong>Auditoria</strong>
